@@ -23,3 +23,17 @@ bool nearInRange(Float x, Float start, Float end) {
 bool inRange(Float x, Float start, Float end) {
     return start <= x && x <= end;
 }
+
+Float clamp(Float x, Float min, Float max) {
+    if (x < min) {
+        return min;
+    }
+    if (x > max) {
+        return max;
+    }
+    return x;
+}
+
+Float clampToNormal(Float x) {
+    return clamp(x, 0.0, 1.0);
+}

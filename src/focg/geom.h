@@ -103,8 +103,21 @@ struct GVector : public details::ctrp<T, F> {
     }
     
     inline T operator*(F scalar) const {
-        T out = *this;
+        T out = this->u();
         out *= scalar;
+        return out;
+    }
+    
+    inline T& operator/=(F scalar) {
+        for (size_t i = 0; i < n; ++i) {
+            data[i] /= scalar;
+        }
+        return this->u();
+    }
+    
+    inline T operator/(F scalar) const {
+        T out = this->u();
+        out /= scalar;
         return out;
     }
 
@@ -116,6 +129,10 @@ struct GVector : public details::ctrp<T, F> {
             out += tmp[i];
         }
         return out;
+    }
+    
+    void normalize() {
+        this->u() /= sqrt(this->dot(this->u()));
     }
 
     F& operator[](size_t index) {

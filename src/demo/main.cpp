@@ -1,5 +1,6 @@
 #include <focg/curve.h>
 #include <focg/screen.h>
+#include <focg/raytracer.h>
 #include <chrono>
 #include <thread>
 #include <glad/glad.h>
@@ -8,17 +9,64 @@
 constexpr size_t WIDTH = 640;
 constexpr size_t HEIGHT = 480;
 
+
 struct PrimitiveDraw {
     void render(Screen &screen) {
+        begin(screen);
         for (int i = 0; i < WIDTH; ++i) {
            for (int j = 0; j < HEIGHT; ++j) {
                Vector2 pos(i,j);
                frag(screen, pos);
            }
         }
+        end(screen);
     }
 
+    virtual void begin(Screen &screen) { }
+    virtual void end(Screen &screen) { }
     virtual void frag(Screen& screen, Vector2 pos) = 0;
+};
+
+struct DrawSphere : public PrimitiveDraw {
+    Sphere sphere;
+    Camera camera;
+    Vector3 color;
+    Vector3 specular;
+    Vector3 light;
+    
+    DrawSphere() {
+        sphere = Sphere(Vector3(0.0, 0.0, 0.0), 0.25);
+        Basis basis;
+        basis.u = Vector3(1.0, 0.0, 0.0);
+        basis.v = Vector3(0.0, 1.0, 0.0);
+        basis.w = Vector3(0.0, 0.0, -1.0);
+        color = Vector3(0.2,1.0,0.3);
+        specular = Vector3(0.5, 0.5, 0.5);
+        camera = Camera(Vector3(0.5, 0.5, -1.0), basis);
+        light = Vector3(0.7, 0.3, -1.0);
+        light.normalize();
+    }
+    
+    void begin(Screen &screen) override {
+        light.x() += 0.05;
+        light.normalize();
+    }
+    
+    void frag(Screen &screen, Vector2 pos) override {
+        const Ray ray = camera.generateRay(pos, screen);
+        Vector3 normal;
+        const bool test = testRay(ray, sphere, normal);
+        if (test) {
+            Vector3 h = ray.dir + light;
+            h.normalize();
+            
+            Float x = std::max(0.0, light.dot(normal));
+            Float x2 = std::max(0.0, h.dot(normal));
+            screen.setPixel(pos, x * color + pow(x2, 100) * specular);
+        } else {
+            screen.setPixel(pos, Vector3(1.0,1.0,1.0));
+        }
+    }
 };
 
 struct DrawLine : public PrimitiveDraw {
@@ -57,8 +105,9 @@ struct DrawTriangle : public PrimitiveDraw {
     }
 
     void frag(Screen &screen, Vector2 pos) override {
+        Vector3 bc = tri(pos);
         if (tri.test(pos)) {
-            screen.setPixel(pos, color);
+            screen.setPixel(pos, bc);
         } else {
             screen.setPixel(pos, Vector3(1.0,1.0,1.0));
         }
@@ -66,7 +115,7 @@ struct DrawTriangle : public PrimitiveDraw {
 };
 
 int main() {
-    DrawTriangle app;
+    DrawSphere app;
     Screen screen(WIDTH, HEIGHT);
     if (!glfwInit())
          return 1;
@@ -83,8 +132,7 @@ int main() {
     gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
     glfwSwapInterval(1);
     
-    while (!glfwWindowShouldClose(window))
-    {
+    while (!glfwWindowShouldClose(window)) {
         app.render(screen);
         glRasterPos2f(-1,-1);
         int width, height;
