@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdlib>
+#include <sstream>
 #include <array>
 
 namespace details {
@@ -120,7 +121,7 @@ struct GVector : public details::ctrp<T, F> {
         out /= scalar;
         return out;
     }
-
+    
     inline F dot(const T& other) const {
         T tmp = this->u();
         tmp *= other;
@@ -131,12 +132,40 @@ struct GVector : public details::ctrp<T, F> {
         return out;
     }
     
-    void normalize() {
+    inline F norm2() const {
+        return this->dot(this->u());
+    }
+      
+    
+    inline F norm() const {
+        return sqrt(norm2());
+    }
+    
+    inline void normalize() {
         this->u() /= sqrt(this->dot(this->u()));
     }
 
+    inline T normalized() const {
+        T out = this->u();
+        out.normalize();
+        return out;
+    }
+    
     F& operator[](size_t index) {
         return data[index];
+    }
+    
+    std::string desc() const {
+        std::stringstream ss("");
+        ss << "(";
+        for (size_t i = 0; i < n; ++i) {
+            ss << data[i];
+            if (i != n-1) {
+                ss << ", ";
+            }
+        }
+        ss << ")";
+        return ss.str();
     }
 
 protected:
@@ -151,6 +180,14 @@ struct GVector3 final : public GVector<GVector3<F>, F, 3> {
     F& x() { return this->data[0]; }
     F& y() { return this->data[1]; }
     F& z() { return this->data[2]; }
+    
+    inline GVector3<F> cross(const GVector3<F>& other) const {
+        GVector3<F> out;
+        out.x() = y() * other.z() - z() * other.y();
+        out.y() = z() * other.x() - x() * other.z();
+        out.z() = x() * other.y() - y() * other.x();
+        return out;
+    }
     
     const F& x() const { return this->data[0]; }
     const F& y() const { return this->data[1]; }

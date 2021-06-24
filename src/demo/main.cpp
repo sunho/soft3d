@@ -6,25 +6,151 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-constexpr size_t WIDTH = 640;
-constexpr size_t HEIGHT = 480;
+constexpr size_t WIDTH = 500;
+constexpr size_t HEIGHT = 500;
 
+struct KeyboardState {
+    GLFWwindow* window;
+    bool pressed(int keycode) {
+        int state = glfwGetKey(window, keycode);
+        return (state == GLFW_PRESS);
+    }
+
+};
 
 struct PrimitiveDraw {
-    void render(Screen &screen) {
-        begin(screen);
+    void render(Screen &screen, KeyboardState& key) {
+        begin(screen, key);
         for (int i = 0; i < WIDTH; ++i) {
            for (int j = 0; j < HEIGHT; ++j) {
                Vector2 pos(i,j);
                frag(screen, pos);
            }
         }
-        end(screen);
+        end(screen, key);
     }
 
-    virtual void begin(Screen &screen) { }
-    virtual void end(Screen &screen) { }
+    virtual void begin(Screen &screen, KeyboardState& key) { }
+    virtual void end(Screen &screen, KeyboardState& key) { }
     virtual void frag(Screen& screen, Vector2 pos) = 0;
+};
+
+struct Light {
+    Float intensity;
+    Vector3 v;
+};
+
+struct SphereRayTrace : public PrimitiveDraw {
+    Scene scene;
+    Camera camera;
+    Float ambientI;
+    RayObject* mirror;
+    
+    std::vector<Light> lights;
+    
+    SphereRayTrace() {
+        Shade shade1 = {
+            .diffuse = Vector3(0.5,1.0,0.5),
+            .ambient = Vector3(0.5,1.0,0.5),
+            .specular = Vector3(0.3, 0.3, 0.3),
+            .p = 100.0
+        };
+        Shade shade2 = {
+            .diffuse = Vector3(0.5,0.5,1.0),
+            .ambient = Vector3(0.5,0.5,1.0),
+            .specular = Vector3(0.3, 0.3, 0.3),
+            .p = 100.0
+        };
+        Shade shade3 = {
+            .diffuse = Vector3(0.5,0.5,0.5),
+            .ambient = Vector3(0.5,0.5,0.5),
+            .specular = Vector3(0.3, 0.3, 0.3),
+            .p = 100.0
+        };
+        Shade shade4 = {
+            .diffuse = Vector3(0.8,0.8,0.8),
+            .ambient = Vector3(0.8,0.8,0.8),
+            .specular = Vector3(0.3, 0.3, 0.3),
+            .p = 100.0
+        };
+        scene.addObject(0, std::make_unique<Sphere>(Vector3(-0.2, 0.0, 0.0), 0.25, shade1));
+        auto m2 =  std::make_unique<Sphere>(Vector3(0.3, 0.0, -0.4), 0.25, shade2);
+                //mirror = m2.get();
+        scene.addObject(1, std::move(m2));
+        auto m = std::make_unique<Triangle3>(Vector3(-0.5, 1.0, -0.2), Vector3(-0.5, -0.5,  -0.1), Vector3(0.5, 0.5,  -0.5),  shade4);
+        //mirror = m.get();
+        Float sz = -0.6;
+        scene.addObject(2, std::move(m));
+        scene.addObject(3, std::make_unique<Triangle3>(Vector3(-1.0, 2.0, sz), Vector3(-1.0, -1.0,  sz), Vector3(2.0, 2.0,  sz),  shade3));
+        scene.addObject(4, std::make_unique<Triangle3>(Vector3(-1.0, -1.0,  sz), Vector3(1.0, -2.0, sz), Vector3(2.0, 2.0,  sz),  shade3));
+        Basis basis;
+        basis.u = Vector3(1.0, 0.0, 0.0);
+        basis.v = Vector3(0.0, 1.0, 0.0);
+        basis.w = Vector3(0.0, 0.0, 1.0);
+        camera = Camera(Vector3(-0.5, -0.5, 1.0), basis);
+        lights.push_back({1.2, Vector3(-0.5, 0.5, 0.5).normalized()});
+        lights.push_back({0.3, Vector3(-0.8, -1.0, 0.5).normalized()});
+        lights.push_back({0.3, Vector3(0.8, -1.0, 0.5).normalized()});
+        ambientI = 0.2;
+    }
+    
+    void begin(Screen &screen, KeyboardState& key) override {
+        if (key.pressed(GLFW_KEY_W)) {
+            camera.e.z() -= 0.05;
+        }
+        if (key.pressed(GLFW_KEY_S)) {
+            camera.e.z() += 0.05;
+        }
+        if (key.pressed(GLFW_KEY_A)) {
+             camera.e.x() -= 0.05;
+        }
+        if (key.pressed(GLFW_KEY_D)) {
+             camera.e.x() += 0.05;
+        }
+    }
+    
+    Vector3 rayColor(Ray ray, Float t0, Float t1, int depth = 0) {
+        if (depth == 10) {
+            return Vector3(0,0,0);
+        }
+        RayHit hit;
+        RayHit hit2;
+        const bool test = scene.testRay(ray, t0, t1, hit);
+        if (test) {
+            if (hit.obj->type() == RayObjectType::TRIANGLE3 || hit.obj == mirror) {
+                Vector3 pixel =  ambientI * hit.shade.ambient;
+                
+                for (auto light : lights) {
+                 if (!scene.testRay(Ray{hit.pos, light.v}, 0.0001, 1.0/0.0, hit2)) {
+                    Vector3 dir = ray.dir - 2*(ray.dir.dot(hit.normal))*hit.normal;
+                    pixel += light.intensity * Vector3(0.4,0.4,0.4) * rayColor(Ray{hit.pos, dir}, 0.0001, 1.0/0.0, depth + 1);
+                 }
+                }
+                return pixel;
+            } else {
+                Vector3 pixel =  ambientI * hit.shade.ambient;
+
+                for (auto light : lights) {
+                    if (!scene.testRay(Ray{hit.pos, light.v}, 0.0001, 1.0/0.0, hit2)) {
+                        Vector3 h = -1*ray.dir.normalized() + light.v;
+                        h.normalize();
+                        
+                        Float x = std::max(0.0, light.v.dot(hit.normal));
+                        Float x2 = std::max(0.0, h.dot(hit.normal));
+                        pixel += light.intensity * (x * hit.shade.diffuse + pow(x2, hit.shade.p) * hit.shade.specular);
+                    }
+                }
+                return pixel;
+            }
+        } else {
+            return Vector3(1.0,1.0,1.0);
+        }
+    }
+    
+    void frag(Screen &screen, Vector2 pos) override {
+        const Ray ray = camera.generateRay(pos, screen);
+        screen.setPixel(pos, rayColor(ray, 0.0, 1.0/0.0));
+    }
 };
 
 struct DrawSphere : public PrimitiveDraw {
@@ -32,37 +158,57 @@ struct DrawSphere : public PrimitiveDraw {
     Camera camera;
     Vector3 color;
     Vector3 specular;
-    Vector3 light;
+    Vector3 ambient;
+    Float ambientI;
+    std::vector<Light> lights;
     
     DrawSphere() {
-        sphere = Sphere(Vector3(0.0, 0.0, 0.0), 0.25);
+        sphere = Sphere(Vector3(0.0, 0.0, 0.0), 0.25, Shade());
         Basis basis;
         basis.u = Vector3(1.0, 0.0, 0.0);
         basis.v = Vector3(0.0, 1.0, 0.0);
-        basis.w = Vector3(0.0, 0.0, -1.0);
-        color = Vector3(0.2,1.0,0.3);
-        specular = Vector3(0.5, 0.5, 0.5);
-        camera = Camera(Vector3(0.5, 0.5, -1.0), basis);
-        light = Vector3(0.7, 0.3, -1.0);
-        light.normalize();
+        basis.w = Vector3(0.0, 0.0, 1.0);
+        color = Vector3(0.5,1.0,0.5);
+        ambient = color;
+        specular = Vector3(0.3, 0.3, 0.3);
+        camera = Camera(Vector3(-0.5, -0.5, 1.0), basis);
+        lights.push_back({1.2, Vector3(-0.5, 0.5, 0.5).normalized()});
+        lights.push_back({0.3, Vector3(-0.8, -1.0, 0.5).normalized()});
+        lights.push_back({0.3, Vector3(0.8, -1.0, 0.5).normalized()});
+        ambientI = 0.2;
     }
     
-    void begin(Screen &screen) override {
-        light.x() += 0.05;
-        light.normalize();
+    void begin(Screen &screen, KeyboardState& key) override {
+        if (key.pressed(GLFW_KEY_W)) {
+            camera.e.z() -= 0.05;
+        }
+        if (key.pressed(GLFW_KEY_S)) {
+            camera.e.z() += 0.05;
+        }
+        if (key.pressed(GLFW_KEY_A)) {
+             camera.e.x() -= 0.05;
+        }
+        if (key.pressed(GLFW_KEY_D)) {
+             camera.e.x() += 0.05;
+        }
     }
     
     void frag(Screen &screen, Vector2 pos) override {
         const Ray ray = camera.generateRay(pos, screen);
-        Vector3 normal;
-        const bool test = testRay(ray, sphere, normal);
+        RayHit hit;
+        const bool test = sphere.testRay(ray, 0.0, 1.0/0.0, hit);
         if (test) {
-            Vector3 h = ray.dir + light;
-            h.normalize();
-            
-            Float x = std::max(0.0, light.dot(normal));
-            Float x2 = std::max(0.0, h.dot(normal));
-            screen.setPixel(pos, x * color + pow(x2, 100) * specular);
+            Vector3 pixel =  ambientI * ambient;
+
+            for (auto light : lights) {
+                Vector3 h = -1*ray.dir.normalized() + light.v;
+                h.normalize();
+                
+                Float x = std::max(0.0, light.v.dot(hit.normal));
+                Float x2 = std::max(0.0, h.dot(hit.normal));
+                pixel += light.intensity * (x * color + pow(x2, 100) * specular);
+            }
+            screen.setPixel(pos, pixel);
         } else {
             screen.setPixel(pos, Vector3(1.0,1.0,1.0));
         }
@@ -115,7 +261,7 @@ struct DrawTriangle : public PrimitiveDraw {
 };
 
 int main() {
-    DrawSphere app;
+    SphereRayTrace app;
     Screen screen(WIDTH, HEIGHT);
     if (!glfwInit())
          return 1;
@@ -132,8 +278,10 @@ int main() {
     gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
     glfwSwapInterval(1);
     
+    KeyboardState key{window};
+    
     while (!glfwWindowShouldClose(window)) {
-        app.render(screen);
+        app.render(screen, key);
         glRasterPos2f(-1,-1);
         int width, height;
         glfwGetFramebufferSize(window, &width, &height);
@@ -143,7 +291,7 @@ int main() {
         glDrawPixels(WIDTH, HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, screen.data());
         glfwSwapBuffers(window);
         glfwPollEvents();
-        std::this_thread::sleep_for(std::chrono::milliseconds(30));
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }
     glfwDestroyWindow(window);
     

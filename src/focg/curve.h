@@ -58,29 +58,3 @@ struct Triangle {
         return inRange(bc.x(), 0.0, 1.0) && inRange(bc.y(), 0.0, 1.0) && inRange(bc.z(), 0.0, 1.0);
     }
 };
-
-// f(p) = (p-c)^2 - r^2 = 0
-struct Sphere {
-    Vector3 c;
-    Float r {0.0};
-    Sphere() = default;
-    explicit Sphere(Vector3 c, Float r) : c(c), r(r) { }
-    
-    Float operator()(const Vector3& p) {
-        Vector3 t = c - p;
-        return t.dot(t) - r*r;
-    }
-    
-    // grad f(p)
-    // (p-c)^2 = p^2 - 2p.c + C
-    // = p_x^2 + p_y^2 + p_z^2 - 2p_xc_x - 2p_yc_y - 2p_zc_z + C
-    //
-    // del x = 2p_x - 2c_x del y = 2p_y - 2c_y del z = 2p_z - 2c_z
-    // grad = 2(p-c)
-    // on the surface, |(p-c)| = r (from solving f(p))
-    // |2(p-c)| = 2|p-c| = 2r
-    // unit grad = (p-c)/r
-    Vector3 normal(const Vector3& p) {
-        return (p - c) / r;
-    }
-};
