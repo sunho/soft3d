@@ -16,4 +16,6 @@ set(SOURCE_LIST
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SOURCE_LIST})
 
 add_library(focg ${SOURCE_LIST})
-target_include_directories(focg PUBLIC ..)
+target_include_directories(focg PUBLIC .. ${CMAKE_CURRENT_BINARY_DIR}/..)
+
+create_resources(${CMAKE_CURRENT_SOURCE_DIR}/backend/gl/shaders ${CMAKE_CURRENT_BINARY_DIR}/backend/gl/shaders.h)
