@@ -1,4 +1,5 @@
 set(SOURCE_LIST
+    focg/loader.h
     focg/geom.h
     focg/curve.h
     focg/raytracer.h

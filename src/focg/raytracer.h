@@ -147,7 +147,7 @@ struct Triangle3 : public RayObject {
         Vector3 ab = vB-vA;
         Vector3 ac = vC-vA;
         n = ab.cross(ac);
-        printf("%s %s %s", ab.desc().c_str(), ac.desc().c_str(), n.desc().c_str());
+        //printf("%s %s %s", ab.desc().c_str(), ac.desc().c_str(), n.desc().c_str());
         cA = vC-vB;
         cB = vA-vC;
         cC = vB-vA;
@@ -275,12 +275,14 @@ struct Scene {
     }
     
     bool testRay(Ray ray, Float t0, Float t1, RayHit &hit) {
+        bool test = false;
         for (auto& [_, obj] : objects) {
             if (obj->testRay(ray, t0, t1, hit)) {
-                return true;
+                t1 = hit.time;
+                test = true;
             }
         }
-        return false;
+        return test;
     }
 private:
     std::map<int, RayObjectPtr> objects;

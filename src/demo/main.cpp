@@ -1,5 +1,6 @@
 #include <focg/curve.h>
 #include <focg/screen.h>
+#include <focg/loader.h>
 #include <focg/raytracer.h>
 #include <chrono>
 #include <thread>
@@ -38,6 +39,102 @@ struct PrimitiveDraw {
 struct Light {
     Float intensity;
     Vector3 v;
+};
+
+struct ObjLoad : public PrimitiveDraw {
+    Scene scene;
+    Model model;
+    Camera camera;
+    Float ambientI;
+    RayObject* mirror;
+    RayObject* mirror2;
+    std::vector<Light> lights;
+    
+    ObjLoad() {
+        model = loadObj("model.obj");
+        
+        Basis basis;
+        basis.u = Vector3(1.0, 0.0, 0.0);
+        basis.v = Vector3(0.0, 1.0, 0.0);
+        basis.w = Vector3(0.0, 0.0, 1.0);
+        camera = Camera(Vector3(-0.5, 0.0, 2.0), basis);
+
+        Shade shade1 = {
+            .diffuse = Vector3(0.5,1.0,0.5),
+            .ambient = Vector3(0.5,1.0,0.5),
+            .specular = Vector3(0.3, 0.3, 0.3),
+            .p = 100.0
+        };
+    
+        Shade shade2 = {
+            .diffuse = Vector3(0.5,0.5,1.0),
+            .ambient = Vector3(0.5,0.5,1.0),
+            .specular = Vector3(0.3, 0.3, 0.3),
+            .p = 100.0
+        };
+        Shade shade3 = {
+            .diffuse = Vector3(0.7,0.7,0.7),
+            .ambient = Vector3(0.7,0.7,0.7),
+            .specular = Vector3(0.3, 0.3, 0.3),
+            .p = 100.0
+        };
+                Float sz = -0.3;
+        auto m = std::make_unique<Triangle3>(Vector3(-1.0, 2.0, sz), Vector3(-1.0, -1.0,  sz), Vector3(2.0, 2.0,  sz),  shade3);
+        mirror = m.get();
+        scene.addObject(0, std::move(m));
+        auto m2 = std::make_unique<Triangle3>(Vector3(-1.0, -1.0,  sz), Vector3(1.0, -2.0, sz), Vector3(2.0, 2.0,  sz),  shade3);
+        mirror2 = m2.get();
+        scene.addObject(1, std::move(m2));
+        scene.addObject(2, std::make_unique<Sphere>(Vector3(0.0, 0.0, -0.15), 0.10, shade2));
+        
+        
+        int i = 3;
+        for(auto tri : model.meshes[0].data) {
+            //if (tri.a.cross(tri.b).dot(camera.basis.w) > 0.0) {
+                 scene.addObject(i++, std::make_unique<Triangle3>(tri.a, tri.b, tri.c,  shade1));
+            //}
+           
+        }
+        
+        ambientI = 0.2;
+        lights.push_back({1.2, Vector3(-0.5, 0.5, 0.5).normalized()});
+        lights.push_back({0.3, Vector3(-0.8, -1.0, 0.5).normalized()});
+    }
+
+    
+    Vector3 rayColor(Ray ray, Float t0, Float t1, int depth = 0) {
+        if (depth == 10) {
+            return Vector3(0,0,0);
+        }
+        RayHit hit;
+        RayHit hit2;
+        const bool test = scene.testRay(ray, t0, t1, hit);
+        if (test) {
+            Vector3 pixel =  ambientI * hit.shade.ambient;
+
+            for (auto light : lights) {
+                if (!scene.testRay(Ray{hit.pos, light.v}, 0.0001, 1.0/0.0, hit2)) {
+                    Vector3 h = -1*ray.dir.normalized() + light.v;
+                    h.normalize();
+                    
+                    Float x = std::max(0.0, light.v.dot(hit.normal));
+                    Float x2 = std::max(0.0, h.dot(hit.normal));
+                    pixel += light.intensity * (x * hit.shade.diffuse + pow(x2, hit.shade.p) * hit.shade.specular);
+                }
+            }
+                Vector3 dir = ray.dir - 2*(ray.dir.dot(hit.normal))*hit.normal;
+                pixel += Vector3(0.2,0.2,0.2) * rayColor(Ray{hit.pos, dir}, 0.0001, 1.0/0.0, depth + 1);
+
+            return pixel;
+        } else {
+            return Vector3(1.0,1.0,1.0);
+        }
+    }
+    
+    void frag(Screen &screen, Vector2 pos) override {
+        const Ray ray = camera.generateRay(pos, screen);
+        screen.setPixel(pos, rayColor(ray, 0.0, 1.0/0.0));
+    }
 };
 
 struct SphereRayTrace : public PrimitiveDraw {
@@ -117,31 +214,23 @@ struct SphereRayTrace : public PrimitiveDraw {
         RayHit hit2;
         const bool test = scene.testRay(ray, t0, t1, hit);
         if (test) {
-            if (hit.obj->type() == RayObjectType::TRIANGLE3 || hit.obj == mirror) {
-                Vector3 pixel =  ambientI * hit.shade.ambient;
-                
-                for (auto light : lights) {
-                 if (!scene.testRay(Ray{hit.pos, light.v}, 0.0001, 1.0/0.0, hit2)) {
-                    Vector3 dir = ray.dir - 2*(ray.dir.dot(hit.normal))*hit.normal;
-                    pixel += light.intensity * Vector3(0.4,0.4,0.4) * rayColor(Ray{hit.pos, dir}, 0.0001, 1.0/0.0, depth + 1);
-                 }
-                }
-                return pixel;
-            } else {
-                Vector3 pixel =  ambientI * hit.shade.ambient;
+            Vector3 pixel =  ambientI * hit.shade.ambient;
 
-                for (auto light : lights) {
-                    if (!scene.testRay(Ray{hit.pos, light.v}, 0.0001, 1.0/0.0, hit2)) {
-                        Vector3 h = -1*ray.dir.normalized() + light.v;
-                        h.normalize();
-                        
-                        Float x = std::max(0.0, light.v.dot(hit.normal));
-                        Float x2 = std::max(0.0, h.dot(hit.normal));
-                        pixel += light.intensity * (x * hit.shade.diffuse + pow(x2, hit.shade.p) * hit.shade.specular);
-                    }
+            for (auto light : lights) {
+                if (!scene.testRay(Ray{hit.pos, light.v}, 0.0001, 1.0/0.0, hit2)) {
+                    Vector3 h = -1*ray.dir.normalized() + light.v;
+                    h.normalize();
+                    
+                    Float x = std::max(0.0, light.v.dot(hit.normal));
+                    Float x2 = std::max(0.0, h.dot(hit.normal));
+                    pixel += light.intensity * (x * hit.shade.diffuse + pow(x2, hit.shade.p) * hit.shade.specular);
                 }
-                return pixel;
             }
+            if (hit.obj->type() == RayObjectType::TRIANGLE3 || hit.obj == mirror) {
+                Vector3 dir = ray.dir - 2*(ray.dir.dot(hit.normal))*hit.normal;
+                pixel += Vector3(0.2,0.2,0.2) * rayColor(Ray{hit.pos, dir}, 0.0001, 1.0/0.0, depth + 1);
+            }
+            return pixel;
         } else {
             return Vector3(1.0,1.0,1.0);
         }
@@ -261,7 +350,7 @@ struct DrawTriangle : public PrimitiveDraw {
 };
 
 int main() {
-    SphereRayTrace app;
+    ObjLoad app;
     Screen screen(WIDTH, HEIGHT);
     if (!glfwInit())
          return 1;
@@ -273,7 +362,6 @@ int main() {
         return 1;
     }
 
-    glfwMakeContextCurrent(window);
     glfwMakeContextCurrent(window);
     gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
     glfwSwapInterval(1);
