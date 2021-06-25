@@ -1,7 +1,7 @@
 #pragma once
 #include <fstream>
 #include <vector>
-#include <focg/geom.h>
+#include <focg/common/linalg.h>
 
 struct ModelTriangle {
     Vector3 a;

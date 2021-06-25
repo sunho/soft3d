@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cmath>
 #include <cstdlib>
 #include <sstream>
 #include <array>
@@ -208,3 +209,9 @@ struct GVector2 final : public GVector<GVector2<F>, F, 2> {
 using Float = double;
 using Vector3 = GVector3<Float>;
 using Vector2 = GVector2<Float>;
+
+struct Basis {
+    Vector3 u;
+    Vector3 v;
+    Vector3 w;
+};

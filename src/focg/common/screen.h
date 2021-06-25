@@ -1,5 +1,5 @@
 #pragma once
-#include <focg/geom.h>
+#include <focg/common/linalg.h>
 #include <vector>
 
 struct Screen {

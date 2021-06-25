@@ -1,7 +1,7 @@
 #pragma once
 #include <cmath>
-#include <focg/util.h>
-#include <focg/geom.h>
+#include <focg/common/util.h>
+#include <focg/common/linalg.h>
 
 // f(x,y) = Ax + By + C
 // f(x,y) = (y0 - y1)x + (x1 - x0)y + x0y1 - x1y0 = 0
@@ -29,7 +29,7 @@ struct Line2 {
 
 // barycentric beta is the signed scaled distance from the l_AC
 // beta = f_ac (x, y) / f_ac(x_b, y_b)
-struct Triangle {
+struct Triangle2 {
     Line2 acL;
     Line2 abL;
     Float fB {0.0};
@@ -38,8 +38,8 @@ struct Triangle {
     Vector2 pB;
     Vector2 pC;
 
-    Triangle() = default;
-    explicit Triangle(Vector2 a, Vector2 b, Vector2 c) : pA(a), pB(b), pC(c) {
+    Triangle2() = default;
+    explicit Triangle2(Vector2 a, Vector2 b, Vector2 c) : pA(a), pB(b), pC(c) {
         acL = Line2(a,c);
         abL = Line2(a,b);
         fB = acL(b);
