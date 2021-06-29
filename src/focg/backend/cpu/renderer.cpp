@@ -61,10 +61,11 @@ bool CPURenderer::testRay(Ray ray, Float t0, Float t1, RayHit &hit) {
     bool out = false;
     for (auto& geom : scene.geoms) {
         bool tmp = false;
-        std::visit(overloaded{
-            [&](Sphere& sphere){tmp = this->testSphereRay(sphere, ray, t0, t1, hit);},
-            [&](Triangle& triangle){tmp = this->testTriangleRay(triangle, ray, t0, t1, hit);},
-        }, geom);
+        if(auto sphere = std::get_if<Sphere>(&geom)) {
+            tmp = testSphereRay(*sphere, ray, t0, t1, hit);
+        } else if (auto triangle = std::get_if<Triangle>(&geom)){
+            tmp = testTriangleRay(*triangle, ray, t0, t1, hit);
+        }
         out |= tmp;
         if (tmp) t1 = hit.time;
     }
@@ -80,7 +81,9 @@ bool CPURenderer::testRay(Ray ray, Float t0, Float t1, RayHit &hit) {
 // A = d.d t^2
 // B = 2d.(e-c)t
 // C = (e-c).(e-c)
-bool CPURenderer::testSphereRay(Sphere sphere, Ray ray, Float t0, Float t1, RayHit &hit) {
+bool CPURenderer::testSphereRay(const Sphere& sphere, Ray ray, Float t0, Float t1, RayHit &hit) {
+    ray.origin = ray.origin.transformed(sphere.itransform, 1.0);
+    ray.dir = ray.dir.transformed(sphere.itransform, 0.0);
     Vector3 ec = ray.origin - sphere.center;
     Float dec = ray.dir.dot(ec);
     Float dd = ray.dir.dot(ray.dir);
@@ -90,9 +93,9 @@ bool CPURenderer::testSphereRay(Sphere sphere, Ray ray, Float t0, Float t1, RayH
     if (test) {
         const Float t = (-dec - sqrt(D))/dd; // use -sqrt(D) solution that should be the earlier hit
         if (inRange(t, t0, t1)) {
-            hit.pos = ray.origin + t * ray.dir;
+            hit.pos = (ray.origin + t * ray.dir).transformed(sphere.transform, 1.0);
             hit.time = t;
-            hit.normal = sphere.normal(hit.pos);
+            hit.normal = sphere.normal(hit.pos).transformed(sphere.transform.transpose(), 0.0).normalized();
             hit.shade = sphere.shade;
         } else {
             test = false;
@@ -122,19 +125,22 @@ bool CPURenderer::testSphereRay(Sphere sphere, Ray ray, Float t0, Float t1, RayH
 // c = i(ak-jb)+h(jc-al)+g(bl-kc) / M
 // t = -(f(ak-jb)+e(jc-al)+d(bl-kc) / M)
 // M = a(ei-hf) + b(gf-di) + c(dh-eg)
-bool CPURenderer::testTriangleRay(Triangle triangle, Ray ray, Float t0, Float t1, RayHit &hit){
-    Float a = triangle.vA.x() - triangle.vB.x();
-    Float b = triangle.vA.y() - triangle.vB.y();
-    Float c = triangle.vA.z() - triangle.vB.z();
-    Float d = triangle.vA.x() - triangle.vC.x();
-    Float e = triangle.vA.y() - triangle.vC.y();
-    Float f = triangle.vA.z() - triangle.vC.z();
+bool CPURenderer::testTriangleRay(const Triangle& triangle, Ray ray, Float t0, Float t1, RayHit &hit){
+    Vector3 vA = triangle.vA.transformed(triangle.transform, 1.0);
+    Vector3 vB = triangle.vB.transformed(triangle.transform, 1.0);
+    Vector3 vC = triangle.vC.transformed(triangle.transform, 1.0);
+    Float a = vA.x() - vB.x();
+    Float b = vA.y() - vB.y();
+    Float c = vA.z() - vB.z();
+    Float d = vA.x() - vC.x();
+    Float e = vA.y() - vC.y();
+    Float f = vA.z() - vC.z();
     Float g = ray.dir.x();
     Float h = ray.dir.y();
     Float i = ray.dir.z();
-    Float j = triangle.vA.x() - ray.origin.x();
-    Float k = triangle.vA.y() - ray.origin.y();
-    Float l = triangle.vA.z() - ray.origin.z();
+    Float j = vA.x() - ray.origin.x();
+    Float k = vA.y() - ray.origin.y();
+    Float l = vA.z() - ray.origin.z();
    
     // I believe in compiler
     Float M = a*(e*i-h*f) + b*(g*f-d*i) + c*(d*h-e*g);
@@ -155,7 +161,9 @@ bool CPURenderer::testTriangleRay(Triangle triangle, Ray ray, Float t0, Float t1
     }
     hit.pos = ray.origin + t * ray.dir;
     hit.time = t;
-    hit.normal = triangle.normal(hit.pos);
+    Vector3 ab = vB-vA;
+    Vector3 ac = vC-vA;
+    hit.normal = ab.cross(ac).normalized();
     hit.shade = triangle.shade;
     return true;
 }

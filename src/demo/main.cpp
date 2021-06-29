@@ -2,6 +2,7 @@
 #include <focg/common/screen.h>
 #include <focg/common/loader.h>
 #include <focg/common/scene.h>
+#include <focg/common/transform.h>
 #include <focg/backend/cpu/renderer.h>
 #include <chrono>
 #include <thread>
@@ -49,7 +50,7 @@ struct ObjLoad {
         basis.u = Vector3(1.0, 0.0, 0.0);
         basis.v = Vector3(0.0, 1.0, 0.0);
         basis.w = Vector3(0.0, 0.0, 1.0);
-        scene.camera = Camera(Vector3(-0.5, 0.0, 2.0), basis);
+        scene.camera = Camera(Vector3(-0.5, 0.0, 2.0), basis, 2.0);
         StdLightSystem lightSystem;
         lightSystem.ambientIntensity = 0.1;
         lightSystem.lights.push_back({1.2, Vector3(-0.5, 0.5, 0.5).normalized()});
@@ -139,12 +140,15 @@ struct SphereRayTrace {
         Float sz = -0.6;
         scene.geoms.push_back(Triangle(Vector3(-1.0, 2.0, sz), Vector3(-1.0, -1.0,  sz), Vector3(2.0, 2.0,  sz),  shade3));
         scene.geoms.push_back(Triangle(Vector3(-1.0, -1.0,  sz), Vector3(1.0, -2.0, sz), Vector3(2.0, 2.0,  sz),  shade3));
-
+        Sphere& sp = std::get<Sphere>(scene.geoms[0]);
+        sp.transform = toHomo(scale3(1.0,0.5,1.0));
+        sp.itransform = *invertMatrix4x4(sp.transform);
+        
         Basis basis;
         basis.u = Vector3(1.0, 0.0, 0.0);
         basis.v = Vector3(0.0, 1.0, 0.0);
         basis.w = Vector3(0.0, 0.0, 1.0);
-        scene.camera = Camera(Vector3(-0.5, -0.5, 1.0), basis);
+        scene.camera = Camera(Vector3(-0.5, -0.5, 2.0), basis, 2.0);
         renderer->sceneRef() = scene;
     }
     
@@ -211,8 +215,41 @@ struct DrawTriangle : public PrimitiveDraw {
     }
 };
 
+struct DrawTransformedTriangle : public PrimitiveDraw {
+    Vector3 color;
+    Float stair;
+    Triangle2 tri;
+    Matrix transform;
+    Float deg = 0;
+
+    DrawTransformedTriangle() {
+        color = Vector3(0.3,0.2,0.7);
+        stair = 40.0;
+    }
+    
+    void begin(Screen &screen, KeyboardState& key) override {
+        deg += 5.0;
+        Vector2 a{5.0, 2.0}, b{600.0, 300.0}, c{200, 200};
+        transform = scale2(0.6, 0.6) * shearY2(0.5) * shearX2(-0.5) * rotate2(deg2rad(deg));
+        
+        a = transform.mul<Vector2>(a);
+        b = transform.mul<Vector2>(b);
+        c = transform.mul<Vector2>(c);
+        tri = Triangle2(a,b,c);
+    }
+
+    void frag(Screen &screen, Vector2 pos) override {
+        Vector3 bc = tri(pos);
+        if (tri.test(pos)) {
+            screen.setPixel(pos, bc);
+        } else {
+            screen.setPixel(pos, Vector3(1.0,1.0,1.0));
+        }
+    }
+};
+
 int main() {
-    ObjLoad app;
+    SphereRayTrace app;
     Screen screen(WIDTH, HEIGHT);
     if (!glfwInit())
          return 1;

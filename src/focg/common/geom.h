@@ -12,6 +12,8 @@ struct Shade {
 };
 
 struct Sphere {
+    Matrix transform{I4x4};
+    Matrix itransform{I4x4};
     Vector3 center;
     Float radius {0.0};
     Shade shade;
@@ -34,12 +36,13 @@ struct Sphere {
     // on the surface, |(p-c)| = r (from solving f(p))
     // |2(p-c)| = 2|p-c| = 2r
     // unit grad = (p-c)/r
-    Vector3 normal(const Vector3& p) {
+    Vector3 normal(const Vector3& p) const {
         return (p - center) / radius;
     }
 };
 
 struct Triangle {
+    Matrix transform{I4x4};
     Vector3 vA;
     Vector3 vB;
     Vector3 vC;
@@ -91,7 +94,7 @@ struct Triangle {
         return Vector3(a,b,c);
     }
     
-    Vector3 normal(const Vector3& p) {
+    Vector3 normal(const Vector3& p) const {
         return n.normalized();
     }
 private:

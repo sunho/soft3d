@@ -22,8 +22,8 @@ private:
     Vector3 rayColor(Ray ray, Float t0, Float t1, int depth = 0);
 
     bool testRay(Ray ray, Float t0, Float t1, RayHit &hit);
-    bool testSphereRay(Sphere sphere, Ray ray, Float t0, Float t1, RayHit &hit);
-    bool testTriangleRay(Triangle triangle, Ray ray, Float t0, Float t1, RayHit &hit);
+    bool testSphereRay(const Sphere& sphere, Ray ray, Float t0, Float t1, RayHit &hit);
+    bool testTriangleRay(const Triangle& triangle, Ray ray, Float t0, Float t1, RayHit &hit);
     
     Scene scene;
 };

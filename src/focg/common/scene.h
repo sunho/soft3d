@@ -15,16 +15,16 @@ struct Ray {
 struct Camera {
     Vector3 e;
     Basis basis;
+    Float focal;
     
     Camera() = default;
-    explicit Camera(Vector3 e, Basis basis) : e(e), basis(basis) {
+    explicit Camera(Vector3 e, Basis basis, Float focal) : e(e), basis(basis), focal(focal) {
     }
     
     Ray generateRay(const Vector2& pos, const Screen& screen) {
         const Float u = (pos.x() + 0.5) / screen.getWidth();
         const Float v = (pos.y() + 0.5) / screen.getHeight();
-        const Float d = e.z();
-        const Vector3 dir = -1*d * basis.w + u * basis.u + v * basis.v;
+        const Vector3 dir = -1*focal* basis.w + u * basis.u + v * basis.v;
         return Ray { e , dir.normalized() };
     }
 };

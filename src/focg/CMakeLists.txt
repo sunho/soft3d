@@ -5,6 +5,7 @@ set(SOURCE_LIST
     common/curve.h
     common/screen.h
     common/util.h
+    common/transform.h
     common/scene.h
     backend/interface.h
     backend/cpu/renderer.h
@@ -17,5 +18,12 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SOURCE_LIST})
 
 add_library(focg ${SOURCE_LIST})
 target_include_directories(focg PUBLIC .. ${CMAKE_CURRENT_BINARY_DIR}/..)
+
+add_executable(
+	linalg-test
+	tests/linalg_test.cpp
+)
+target_link_libraries(linalg-test PRIVATE googletest focg)
+add_test(NAME focg COMMAND linalg-test)
 
 create_resources(${CMAKE_CURRENT_SOURCE_DIR}/backend/gl/shaders ${CMAKE_CURRENT_BINARY_DIR}/backend/gl/shaders.h)
