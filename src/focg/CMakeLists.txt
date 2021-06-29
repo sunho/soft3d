@@ -8,10 +8,10 @@ set(SOURCE_LIST
     common/transform.h
     common/scene.h
     backend/interface.h
-    backend/cpu/renderer.h
-    backend/cpu/renderer.cpp
-    backend/gl/renderer.h
-    backend/gl/renderer.cpp
+    backend/rtcpu/renderer.h
+    backend/rtcpu/renderer.cpp
+    backend/rtgl/renderer.h
+    backend/rtgl/renderer.cpp
 )
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SOURCE_LIST})
@@ -26,4 +26,4 @@ add_executable(
 target_link_libraries(linalg-test PRIVATE googletest focg)
 add_test(NAME focg COMMAND linalg-test)
 
-create_resources(${CMAKE_CURRENT_SOURCE_DIR}/backend/gl/shaders ${CMAKE_CURRENT_BINARY_DIR}/backend/gl/shaders.h)
+create_resources(${CMAKE_CURRENT_SOURCE_DIR}/backend/rtgl/shaders ${CMAKE_CURRENT_BINARY_DIR}/backend/rtgl/shaders.h)

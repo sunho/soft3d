@@ -95,7 +95,7 @@ bool CPURenderer::testSphereRay(const Sphere& sphere, Ray ray, Float t0, Float t
         if (inRange(t, t0, t1)) {
             hit.pos = (ray.origin + t * ray.dir).transformed(sphere.transform, 1.0);
             hit.time = t;
-            hit.normal = sphere.normal(hit.pos).transformed(sphere.transform.transpose(), 0.0).normalized();
+            hit.normal = sphere.normal(hit.pos).transformed(sphere.transform, 0.0).normalized();
             hit.shade = sphere.shade;
         } else {
             test = false;
