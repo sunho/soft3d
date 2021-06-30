@@ -12,6 +12,8 @@ set(SOURCE_LIST
     backend/rtcpu/renderer.cpp
     backend/rtgl/renderer.h
     backend/rtgl/renderer.cpp
+    backend/zcpu/renderer.h
+    backend/zcpu/renderer.cpp
 )
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SOURCE_LIST})

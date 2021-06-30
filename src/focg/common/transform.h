@@ -33,3 +33,78 @@ inline Matrix toHomo(Matrix m) {
     out[mi{3,3}] = 1.0;
     return out;
 }
+
+// [-1, 1] to [-0.5, n-0.5]
+// x * (n/2) + (n-1)/2
+// in matrix form
+inline Matrix viewportMatrix(int width, int height) {
+    return Matrix(4,4,{
+        width/2.0, 0, 0, (width-1)/2.0,
+        0, height / 2.0, 0, (height-1)/2.0,
+        0, 0, 1, 0,
+        0, 0, 0, 1
+    });
+}
+
+// fixate z looking at the back
+// Project the cube defined by (l,b,n) and (r,t,f)
+// l = left plane
+// r = right plane
+// b = bottom plane
+// t = top plane
+// n = near plane
+// f = far plane
+// f is more negative as z is pointing backwards
+// it's "windowing transformation"
+// x: [l,r] to [-1,1]
+// y: [b,t] to [-1,1]
+// z: [n,f] to [-1,1]
+// x*(2/r-l) + c
+// (r+l)/2 * (2/r-1)+ c= 0
+// c = -(r+l)/(r-l)
+// x: x*(2/r-l)-(r+l)/(r-l)
+inline Matrix orthProjectionMatrix(Float l, Float r, Float b, Float t, Float n, Float f) {
+    return Matrix(4,4,{
+        2/(r-l), 0, 0, -(r+l)/(r-l),
+        0, 2/(t-b), 0, -(t+b)/(t-b),
+        0, 0, 2/(n-f), -(n+f)/(n-f),
+        0, 0, 0, 1
+    });
+}
+
+// d = focal length = n
+// y_s = d/z*y (sizd is proportional to 1/z)
+// (x,y,z,w) => (x/w,y/w,z/w)
+// the bottom row of matrix e,f,g,h -> x_w = x_o/(ex+fy+gz+h)
+// it turned out it's impossible to perserve z while doing what we want
+// decided to make it unchanged near n and f
+// n + f - n*f/z (this actually preserve the order)
+inline Matrix perspectiveProjectionMatrix(Float n, Float f) {
+    return Matrix(4,4,{
+        n, 0, 0, 0,
+        0, n, 0, 0,
+        0, 0, n+f, -f*n,
+        0, 0, 1, 0});
+}
+
+// convert world frame to camera frame
+// p_xyz = basis * p_uvw = [u,v,w] * p_uvw = lin comb of columns
+// p_uvw = [u,v,w]^-1 * p_xyz
+// The matrix is orthogonal, [u,v,w]^-1 = [u,v,w]^T
+// p_uvw = [u;v;w] * p_xyz
+// T = [u;v;w]
+inline Matrix viewMatrix(const Basis& basis, const Vector3& e) {
+    Matrix s = Matrix(4,4, {
+        basis.u[0], basis.u[1], basis.u[2], 0,
+        basis.v[0], basis.v[1], basis.v[2], 0,
+        basis.w[0], basis.w[1], basis.w[2], 0,
+        0, 0, 0, 1
+    });
+    Matrix t = Matrix(4,4, {
+        1, 0, 0, -e.x(),
+        0, 1, 0, -e.y(),
+        0, 0, 1, -e.z(),
+        0, 0, 0, 1
+    });
+    return s*t;
+}

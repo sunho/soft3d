@@ -6,6 +6,7 @@
 #include <focg/common/linalg.h>
 #include <focg/common/curve.h>
 #include <focg/common/screen.h>
+#include <focg/common/transform.h>
 
 struct Ray {
     Vector3 origin;
@@ -26,6 +27,14 @@ struct Camera {
         const Float v = (pos.y() + 0.5) / screen.getHeight();
         const Vector3 dir = -1*focal* basis.w + u * basis.u + v * basis.v;
         return Ray { e , dir.normalized() };
+    }
+    
+    Matrix VPOV(const Screen& screen) {
+        const Matrix v = viewMatrix(basis, e);
+        const Matrix p = perspectiveProjectionMatrix(-0.5, -2.0);
+        const Matrix o = orthProjectionMatrix(0.0, 1.0, 0.0, 1.0, -0.5, -2.0);
+        const Matrix vp = viewportMatrix(screen.getWidth(), screen.getHeight());
+        return vp*o*p*v;
     }
 };
 

@@ -25,6 +25,10 @@ inline bool inRange(Float x, Float start, Float end) {
     return start <= x && x <= end;
 }
 
+inline bool inRangeExclude(Float x, Float start, Float end) {
+    return start < x && x < end;
+}
+
 inline Float clamp(Float x, Float min, Float max) {
     if (x < min) {
         return min;

@@ -3,7 +3,8 @@
 #include <focg/common/loader.h>
 #include <focg/common/scene.h>
 #include <focg/common/transform.h>
-#include <focg/backend/cpu/renderer.h>
+#include <focg/backend/rtcpu/renderer.h>
+#include <focg/backend/zcpu/renderer.h>
 #include <chrono>
 #include <thread>
 #include <glad/glad.h>
@@ -42,7 +43,7 @@ struct ObjLoad {
     Model model;
     std::unique_ptr<Renderer> renderer;
 
-    ObjLoad() : renderer(std::make_unique<CPURenderer>()){
+    ObjLoad() : renderer(std::make_unique<ZCPURenderer>()){
         Scene scene;
         model = loadObj("model.obj");
         
@@ -50,7 +51,7 @@ struct ObjLoad {
         basis.u = Vector3(1.0, 0.0, 0.0);
         basis.v = Vector3(0.0, 1.0, 0.0);
         basis.w = Vector3(0.0, 0.0, 1.0);
-        scene.camera = Camera(Vector3(-0.5, 0.0, 2.0), basis, 2.0);
+        scene.camera = Camera(Vector3(-0.5, -0.5, 0.8), basis, 1.0);
         StdLightSystem lightSystem;
         lightSystem.ambientIntensity = 0.1;
         lightSystem.lights.push_back({1.2, Vector3(-0.5, 0.5, 0.5).normalized()});
@@ -99,7 +100,7 @@ struct ObjLoad {
 struct SphereRayTrace {
     std::unique_ptr<Renderer> renderer;
     
-    SphereRayTrace()  : renderer(std::make_unique<CPURenderer>()) {
+    SphereRayTrace()  : renderer(std::make_unique<ZCPURenderer>()) {
         Scene scene;
         Shade shade1 = {
             .diffuse = Vector3(0.5,1.0,0.5),
@@ -148,7 +149,7 @@ struct SphereRayTrace {
         basis.u = Vector3(1.0, 0.0, 0.0);
         basis.v = Vector3(0.0, 1.0, 0.0);
         basis.w = Vector3(0.0, 0.0, 1.0);
-        scene.camera = Camera(Vector3(-0.5, -0.5, 2.0), basis, 2.0);
+        scene.camera = Camera(Vector3(1.5, 1.5, 2.0), basis, 1.0);
         renderer->sceneRef() = scene;
     }
     
@@ -169,6 +170,24 @@ struct SphereRayTrace {
         renderer->render(screen);
     }
 };
+
+struct DrawLineZ {
+    Vector3 color;
+    Float stair;
+    Line2 line;
+
+    DrawLineZ() {
+        Vector2 a{5.0, 200.0}, b{50.0, 150.0};
+        line = Line2(a,b);
+        printf("%f\n", line.slope);
+        color = Vector3(0.3,0.2,0.7);
+    }
+
+    void render(Screen &screen, KeyboardState& key) {
+        line.draw(screen, color);
+    }
+};
+
 
 struct DrawLine : public PrimitiveDraw {
     Vector3 color;
@@ -215,6 +234,25 @@ struct DrawTriangle : public PrimitiveDraw {
     }
 };
 
+struct DrawTriangleZ {
+    Vector3 color;
+    Vector3 color2;
+    Vector3 color3;
+    Triangle2 tri;
+
+    DrawTriangleZ() {
+        Vector2 a{5.0, 2.0}, b{400.0, 300.0}, c{200, 200};
+        tri = Triangle2(a,b,c);
+        color = Vector3(0.3,0.2,0.7);
+        color2 = Vector3(0.9,0.3,0.7);
+        color3 = Vector3(0.3,0.7,0.2);
+    }
+
+    void render(Screen &screen, KeyboardState& key) {
+        tri.draw(screen, color, color2, color3);
+    }
+};
+
 struct DrawTransformedTriangle : public PrimitiveDraw {
     Vector3 color;
     Float stair;
@@ -249,7 +287,7 @@ struct DrawTransformedTriangle : public PrimitiveDraw {
 };
 
 int main() {
-    SphereRayTrace app;
+    ObjLoad app;
     Screen screen(WIDTH, HEIGHT);
     if (!glfwInit())
          return 1;

@@ -2,20 +2,27 @@
 #include <cmath>
 #include <focg/common/util.h>
 #include <focg/common/linalg.h>
+#include <focg/common/screen.h>
+
+using DrawFunc = std::function<void(Vector2 pos, Vector3 color)>;
 
 // f(x,y) = Ax + By + C
 // f(x,y) = (y0 - y1)x + (x1 - x0)y + x0y1 - x1y0 = 0
 // distance = k sqrt(A^2 + B^2) = f(x,y) / sqrt(A^2 + B^2)
 struct Line2 {
+    Vector2 a;
+    Vector2 b;
     Vector2 AB{};
     Float C {0.0};
+    Float slope;
     Float normalizer {0.0};
 
     Line2() = default;
-    explicit Line2(const Vector2& a, const Vector2& b) {
+    explicit Line2(const Vector2& a, const Vector2& b) : a(a), b(b) {
         AB = Vector2(a.y() - b.y(), b.x() - a.x());
         C = a.x()*b.y() - b.x()*a.y();
         normalizer = sqrt(a.dot(a) + b.dot(b));
+        slope = -AB.x() / AB.y();
     }
 
     Float operator()(const Vector2& p) {
@@ -24,6 +31,46 @@ struct Line2 {
     
     Float distance(const Vector2& p) {
          return (*this)(p) / normalizer;
+    }
+    
+    void draw(Screen& screen, const Vector3& color) {
+        Vector2 px0 = a.x() < b.x() ? a : b;
+        Vector2 px1 = a.x() < b.x() ? b : a;
+        Vector2 py0 = a.y() < b.y() ? a : b;
+        Vector2 py1 = a.y() < b.y() ? b : a;
+        if (slope > 1.0) {
+            int x = py0.x();
+            for (int y = py0.y(); y < py1.y(); ++y) {
+                 screen.setPixel(x, y, color);
+                if ((*this)(Vector2(x+0.5,y+1)) > 0) {
+                     ++x;
+                 }
+             }
+        } else if (slope > 0.0) {
+            int y = px0.y();
+            for (int x = px0.x(); x < px1.x(); ++x) {
+                 screen.setPixel(x, y, color);
+                 if ((*this)(Vector2(x+1,y+0.5)) < 0) {
+                     ++y;
+                 }
+             }
+        } else if (slope > -1.0) {
+            int y = px0.y();
+            for (int x = px0.x();x < px1.x(); ++x) {
+                 screen.setPixel(x, y, color);
+                 if ((*this)(Vector2(x+1,y-0.5)) > 0) {
+                     --y;
+                 }
+             }
+        } else {
+            int x = py0.x();
+            for (int y = py0.y(); y < py1.y(); ++y) {
+                 screen.setPixel(x, y, color);
+                if ((*this)(Vector2(x+0.5,y+1)) > 0) {
+                     --x;
+                 }
+             }
+        }
     }
 };
 
@@ -57,4 +104,17 @@ struct Triangle2 {
         const Vector3 bc = (*this)(p);
         return inRange(bc.x(), 0.0, 1.0) && inRange(bc.y(), 0.0, 1.0) && inRange(bc.z(), 0.0, 1.0);
     }
+    
+    void draw(Screen& screen, const Vector3& cA, const Vector3& cB, const Vector3& cC) {
+        for (int i = 0; i < screen.getWidth(); ++i) {
+            for (int j = 0; j < screen.getHeight(); ++j) {
+                Vector3 bary = (*this)(Vector2(i,j));
+                if (inRangeExclude(bary.x(), 0.0, 1.0) && inRangeExclude(bary.y(), 0.0, 1.0) && inRangeExclude(bary.z(), 0.0, 1.0)) {
+                    Vector3 color = bary.x() * cA + bary.y() * cB + bary.z() * cC;
+                    screen.setPixel(i, j, color);
+                }
+            }
+        }
+    }
 };
+

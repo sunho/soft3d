@@ -306,7 +306,7 @@ struct GMatrix {
         return Vec(data.data() + index * height);
     }
     
-    GMatrix<F> operator*(const GMatrix<F>& other) {
+    GMatrix<F> operator*(const GMatrix<F>& other) const {
         assert(width == other.height);
         GMatrix<F> out(height, other.width);
         for (size_t i = 0; i < out.height; ++i) {
@@ -348,6 +348,9 @@ private:
 template<typename F>
 GVector3<F> GVector3<F>::transformed(const GMatrix<F>& transform, F w) const {
     GVector4<F> res = transform.template mul<GVector4<F>>(expand(w));
+    if (w != 0.0) {
+        res /= res.w();
+    }
     return res.trunc();
 }
 
@@ -358,7 +361,6 @@ using Vector2 = GVector2<Float>;
 using Matrix = GMatrix<Float>;
 
 constexpr Float PI = 3.14159265358979323846;
-
 
 struct Basis {
     Vector3 u;

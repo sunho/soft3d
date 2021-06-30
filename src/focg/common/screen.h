@@ -8,7 +8,8 @@ struct Screen {
         std::fill(buffer.begin(), buffer.end(), 0xFFFFFFFF);
     }
     
-    inline void setPixel(size_t x, size_t y, const Vector3& rgb) {
+    inline void setPixel(int x, int y, const Vector3& rgb) {
+        if (x < 0 || x >= width || y < 0 || y >= height) return;
         const uint32_t r = static_cast<uint8_t>(0xFF * clampToNormal(rgb.x()));
         const uint32_t g = static_cast<uint8_t>(0xFF * clampToNormal(rgb.y()));
         const uint32_t b = static_cast<uint8_t>(0xFF * clampToNormal(rgb.z()));

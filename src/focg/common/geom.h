@@ -97,6 +97,11 @@ struct Triangle {
     Vector3 normal(const Vector3& p) const {
         return n.normalized();
     }
+    
+    Triangle transformed(const Matrix& mat) const {
+        const Matrix t = transform * mat;
+        return Triangle(vA.transformed(t, 1.0), vB.transformed(t, 1.0), vC.transformed(t, 1.0), shade);
+    }
 private:
     Vector3 n;
     Vector3 cA;
