@@ -51,7 +51,7 @@ struct ObjLoad {
         basis.u = Vector3(1.0, 0.0, 0.0);
         basis.v = Vector3(0.0, 1.0, 0.0);
         basis.w = Vector3(0.0, 0.0, 1.0);
-        scene.camera = Camera(Vector3(-0.5, -0.5, 0.8), basis, 1.0);
+        scene.camera = Camera(Vector3(0.0, 0.0, 1.5), basis, 1.0);
         StdLightSystem lightSystem;
         lightSystem.ambientIntensity = 0.1;
         lightSystem.lights.push_back({1.2, Vector3(-0.5, 0.5, 0.5).normalized()});
@@ -241,7 +241,7 @@ struct DrawTriangleZ {
     Triangle2 tri;
 
     DrawTriangleZ() {
-        Vector2 a{5.0, 2.0}, b{400.0, 300.0}, c{200, 200};
+        Vector2 a{5.0, 2.0}, b{500.0, 400.0}, c{200, 200};
         tri = Triangle2(a,b,c);
         color = Vector3(0.3,0.2,0.7);
         color2 = Vector3(0.9,0.3,0.7);
@@ -287,7 +287,7 @@ struct DrawTransformedTriangle : public PrimitiveDraw {
 };
 
 int main() {
-    ObjLoad app;
+    DrawTriangleZ app;
     Screen screen(WIDTH, HEIGHT);
     if (!glfwInit())
          return 1;
@@ -307,13 +307,14 @@ int main() {
     
     while (!glfwWindowShouldClose(window)) {
         app.render(screen, key);
+        Screen aa = screen.antialias();
         glRasterPos2f(-1,-1);
         int width, height;
         glfwGetFramebufferSize(window, &width, &height);
         glViewport(0, 0, width, height);
         glPixelZoom((double)width/WIDTH, (double)height/HEIGHT);
         glClear(GL_COLOR_BUFFER_BIT);
-        glDrawPixels(WIDTH, HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, screen.data());
+        glDrawPixels(WIDTH, HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, aa.data());
         glfwSwapBuffers(window);
         glfwPollEvents();
         std::this_thread::sleep_for(std::chrono::milliseconds(20));

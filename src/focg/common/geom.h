@@ -99,7 +99,7 @@ struct Triangle {
     }
     
     Triangle transformed(const Matrix& mat) const {
-        const Matrix t = transform * mat;
+        const Matrix t = mat * transform;
         return Triangle(vA.transformed(t, 1.0), vB.transformed(t, 1.0), vC.transformed(t, 1.0), shade);
     }
 private:

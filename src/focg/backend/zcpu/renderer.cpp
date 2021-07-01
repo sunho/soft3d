@@ -42,7 +42,7 @@ void ZCPURenderer::drawTriangle(Screen &screen, const Triangle &triangle, const 
     for (int i = 0; i < screen.getWidth(); ++i) {
         for (int j = 0; j < screen.getHeight(); ++j) {
             Vector3 bary = tri(Vector2(i,j));
-            if (inRangeExclude(bary.x(), 0.0, 1.0) && inRangeExclude(bary.y(), 0.0, 1.0) && inRangeExclude(bary.z(), 0.0, 1.0)) {
+            if (nearInRange(bary.x(), 0.0, 1.0) && nearInRange(bary.y(), 0.0, 1.0) && nearInRange(bary.z(), 0.0, 1.0)) {
                 Float depth = bary.x() * triangle.vA.z() + bary.y() * triangle.vB.z() + bary.z() * triangle.vC.z();
                 if (getDepth(i,j) > depth) continue;
                 setDepth(i,j,depth);

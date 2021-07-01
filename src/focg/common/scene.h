@@ -23,16 +23,16 @@ struct Camera {
     }
     
     Ray generateRay(const Vector2& pos, const Screen& screen) {
-        const Float u = (pos.x() + 0.5) / screen.getWidth();
-        const Float v = (pos.y() + 0.5) / screen.getHeight();
+        const Float u = (pos.x() + 0.5) / screen.getWidth() - 0.5;
+        const Float v = (pos.y() + 0.5) / screen.getHeight() - 0.5;
         const Vector3 dir = -1*focal* basis.w + u * basis.u + v * basis.v;
         return Ray { e , dir.normalized() };
     }
     
     Matrix VPOV(const Screen& screen) {
         const Matrix v = viewMatrix(basis, e);
-        const Matrix p = perspectiveProjectionMatrix(-0.5, -2.0);
-        const Matrix o = orthProjectionMatrix(0.0, 1.0, 0.0, 1.0, -0.5, -2.0);
+        const Matrix p = perspectiveProjectionMatrix(-1.0, -2.0);
+        const Matrix o = orthProjectionMatrix(-0.5, 0.5, -0.5, 0.5, -0.5, -2.0);
         const Matrix vp = viewportMatrix(screen.getWidth(), screen.getHeight());
         return vp*o*p*v;
     }

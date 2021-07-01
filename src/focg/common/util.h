@@ -6,11 +6,11 @@
 constexpr Float EPSILON = std::numeric_limits<double>::epsilon();
 
 inline bool nearGt(Float a, Float b) {
-    return (a - b) > ( (fabs(a) < fabs(b) ? fabs(b) : fabs(a)) * EPSILON);
+    return (a - b) >= ( (fabs(a) < fabs(b) ? fabs(b) : fabs(a)) * EPSILON);
 }
 
-inline bool nearLt(Float a, Float b) {
-    return (b - a) > ( (fabs(a) < fabs(b) ? fabs(b) : fabs(a)) * EPSILON);
+inline bool nearLte(Float a, Float b) {
+    return (b - a) >= ( (fabs(a) < fabs(b) ? fabs(b) : fabs(a)) * EPSILON);
 }
 
 inline bool nearE(Float a, Float b) {
@@ -18,7 +18,7 @@ inline bool nearE(Float a, Float b) {
 }
 
 inline bool nearInRange(Float x, Float start, Float end) {
-    return nearLt(start, x) && nearLt(x, end);
+    return nearLte(start, x) && nearLte(x, end);
 }
 
 inline bool inRange(Float x, Float start, Float end) {

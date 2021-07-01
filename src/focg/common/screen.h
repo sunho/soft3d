@@ -17,6 +17,11 @@ struct Screen {
         buffer[y*width + x] = pixel;
     }
     
+    inline Vector3 readPixel(int x, int y) {
+        const uint32_t pixel = buffer[y*width + x];
+        return Vector3((pixel & 0xFF)/255.0, ((pixel & 0xFF00)>> 8)/255.0, ((pixel & 0xFF0000)>> 16)/255.0);
+    }
+    
     inline void setPixel(const Vector2& pos, const Vector3& rgb) {
         setPixel(pos.x(), pos.y(), rgb);
     }
@@ -29,6 +34,26 @@ struct Screen {
         return buffer.data();
     }
     
+    Screen antialias() {
+        Screen out(width, height);
+        for (int i = 1; i < width-1; ++i) {
+            for (int j = 1; j < height-1; ++j) {
+                Vector3 color;
+                color += readPixel(i-1,j-1)/9.0;
+                color += readPixel(i,j-1)/9.0;
+                color += readPixel(i+1,j-1)/9.0;
+                color += readPixel(i-1,j)/9.0;
+                color += readPixel(i,j)/9.0;
+                color += readPixel(i+1,j)/9.0;
+                color += readPixel(i-1,j+1)/9.0;
+                color += readPixel(i,j+1)/9.0;
+                color += readPixel(i+1,j+1)/9.0;
+                out.setPixel(i,j,color);
+            }
+        }
+        return out;
+    }
+
     size_t getWidth() const {
         return width;
     }
