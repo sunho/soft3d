@@ -3,18 +3,18 @@
 #include <focg/common/linalg.h>
 #include <numeric>
 
-constexpr Float EPSILON = std::numeric_limits<double>::epsilon();
+constexpr Float EPSILON = 1e-8;
 
-inline bool nearGt(Float a, Float b) {
-    return (a - b) >= ( (fabs(a) < fabs(b) ? fabs(b) : fabs(a)) * EPSILON);
+inline bool nearE(Float a, Float b) {
+    return fabs(a - b) < EPSILON;
+}
+
+inline bool nearGte(Float a, Float b) {
+    return a > b || nearE(a,b);
 }
 
 inline bool nearLte(Float a, Float b) {
-    return (b - a) >= ( (fabs(a) < fabs(b) ? fabs(b) : fabs(a)) * EPSILON);
-}
-
-inline bool nearE(Float a, Float b) {
-    return fabs(a - b) <= ( (fabs(a) < fabs(b) ? fabs(b) : fabs(a)) * EPSILON);
+    return a < b || nearE(a,b);
 }
 
 inline bool nearInRange(Float x, Float start, Float end) {
@@ -22,10 +22,6 @@ inline bool nearInRange(Float x, Float start, Float end) {
 }
 
 inline bool inRange(Float x, Float start, Float end) {
-    return start <= x && x <= end;
-}
-
-inline bool inRangeExclude(Float x, Float start, Float end) {
     return start < x && x < end;
 }
 

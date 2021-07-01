@@ -1,5 +1,5 @@
 #include <focg/common/curve.h>
-#include <focg/common/screen.h>
+#include <focg/common/image.h>
 #include <focg/common/loader.h>
 #include <focg/common/scene.h>
 #include <focg/common/transform.h>
@@ -23,7 +23,7 @@ struct KeyboardState {
 };
 
 struct PrimitiveDraw {
-    void render(Screen &screen, KeyboardState& key) {
+    void render(Image &screen, KeyboardState& key) {
         begin(screen, key);
         for (int i = 0; i < WIDTH; ++i) {
            for (int j = 0; j < HEIGHT; ++j) {
@@ -34,16 +34,16 @@ struct PrimitiveDraw {
         end(screen, key);
     }
 
-    virtual void begin(Screen &screen, KeyboardState& key) { }
-    virtual void end(Screen &screen, KeyboardState& key) { }
-    virtual void frag(Screen& screen, Vector2 pos) = 0;
+    virtual void begin(Image &screen, KeyboardState& key) { }
+    virtual void end(Image &screen, KeyboardState& key) { }
+    virtual void frag(Image& screen, Vector2 pos) = 0;
 };
 
 struct ObjLoad {
     Model model;
     std::unique_ptr<Renderer> renderer;
 
-    ObjLoad() : renderer(std::make_unique<ZCPURenderer>()){
+    ObjLoad() : renderer(std::make_unique<RTCPURenderer>()){
         Scene scene;
         model = loadObj("model.obj");
         
@@ -92,7 +92,7 @@ struct ObjLoad {
         renderer->sceneRef() = scene;
     }
     
-    void render(Screen &screen, KeyboardState& key) {
+    void render(Image &screen, KeyboardState& key) {
         renderer->render(screen);
     }
 };
@@ -153,7 +153,7 @@ struct SphereRayTrace {
         renderer->sceneRef() = scene;
     }
     
-    void render(Screen &screen, KeyboardState& key) {
+    void render(Image &screen, KeyboardState& key) {
         Camera& camera = renderer->sceneRef().camera;
         if (key.pressed(GLFW_KEY_W)) {
            camera.e.z() -= 0.05;
@@ -183,7 +183,7 @@ struct DrawLineZ {
         color = Vector3(0.3,0.2,0.7);
     }
 
-    void render(Screen &screen, KeyboardState& key) {
+    void render(Image &screen, KeyboardState& key) {
         line.draw(screen, color);
     }
 };
@@ -201,7 +201,7 @@ struct DrawLine : public PrimitiveDraw {
         stair = 40.0;
     }
 
-    void frag(Screen &screen, Vector2 pos) override {
+    void frag(Image &screen, Vector2 pos) override {
         const Float th = abs(line.distance(pos));
         const Float nth = ((th - fmod(th, stair))/ 700.0);
         if (th <= 1.0) {
@@ -224,7 +224,7 @@ struct DrawTriangle : public PrimitiveDraw {
         stair = 40.0;
     }
 
-    void frag(Screen &screen, Vector2 pos) override {
+    void frag(Image &screen, Vector2 pos) override {
         Vector3 bc = tri(pos);
         if (tri.test(pos)) {
             screen.setPixel(pos, bc);
@@ -248,7 +248,7 @@ struct DrawTriangleZ {
         color3 = Vector3(0.3,0.7,0.2);
     }
 
-    void render(Screen &screen, KeyboardState& key) {
+    void render(Image &screen, KeyboardState& key) {
         tri.draw(screen, color, color2, color3);
     }
 };
@@ -265,7 +265,7 @@ struct DrawTransformedTriangle : public PrimitiveDraw {
         stair = 40.0;
     }
     
-    void begin(Screen &screen, KeyboardState& key) override {
+    void begin(Image &screen, KeyboardState& key) override {
         deg += 5.0;
         Vector2 a{5.0, 2.0}, b{600.0, 300.0}, c{200, 200};
         transform = scale2(0.6, 0.6) * shearY2(0.5) * shearX2(-0.5) * rotate2(deg2rad(deg));
@@ -276,7 +276,7 @@ struct DrawTransformedTriangle : public PrimitiveDraw {
         tri = Triangle2(a,b,c);
     }
 
-    void frag(Screen &screen, Vector2 pos) override {
+    void frag(Image &screen, Vector2 pos) override {
         Vector3 bc = tri(pos);
         if (tri.test(pos)) {
             screen.setPixel(pos, bc);
@@ -287,8 +287,8 @@ struct DrawTransformedTriangle : public PrimitiveDraw {
 };
 
 int main() {
-    DrawTriangleZ app;
-    Screen screen(WIDTH, HEIGHT);
+    ObjLoad app;
+    Image screen(WIDTH, HEIGHT);
     if (!glfwInit())
          return 1;
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
@@ -307,14 +307,14 @@ int main() {
     
     while (!glfwWindowShouldClose(window)) {
         app.render(screen, key);
-        Screen aa = screen.antialias();
+        Image aa = screen.antialias();
         glRasterPos2f(-1,-1);
         int width, height;
         glfwGetFramebufferSize(window, &width, &height);
         glViewport(0, 0, width, height);
         glPixelZoom((double)width/WIDTH, (double)height/HEIGHT);
         glClear(GL_COLOR_BUFFER_BIT);
-        glDrawPixels(WIDTH, HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, aa.data());
+        glDrawPixels(WIDTH, HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, screen.data());
         glfwSwapBuffers(window);
         glfwPollEvents();
         std::this_thread::sleep_for(std::chrono::milliseconds(20));

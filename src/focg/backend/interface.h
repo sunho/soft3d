@@ -1,7 +1,7 @@
 #pragma once
 
 #include <focg/common/scene.h>
-#include <focg/common/screen.h>
+#include <focg/common/image.h>
 
 struct Renderer {
     Renderer() = default;
@@ -12,5 +12,5 @@ struct Renderer {
     Renderer& operator=(Renderer&&) = default;
     
     virtual Scene& sceneRef() = 0;
-    virtual void render(Screen& screen) = 0;
+    virtual void render(Image& screen) = 0;
 };

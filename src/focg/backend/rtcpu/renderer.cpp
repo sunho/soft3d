@@ -1,18 +1,18 @@
 #include "renderer.h"
 
-CPURenderer::CPURenderer() {
+RTCPURenderer::RTCPURenderer() {
     
 }
 
-CPURenderer::~CPURenderer() {
+RTCPURenderer::~RTCPURenderer() {
     
 }
 
-Scene& CPURenderer::sceneRef() {
+Scene& RTCPURenderer::sceneRef() {
     return scene;
 }
 
-void CPURenderer::render(Screen &screen) {
+void RTCPURenderer::render(Image &screen) {
     for (int i = 0; i < screen.getWidth(); ++i) {
         for (int j = 0; j < screen.getHeight(); ++j) {
             Vector2 pos(i,j);
@@ -21,12 +21,12 @@ void CPURenderer::render(Screen &screen) {
     }
 }
 
-void CPURenderer::renderPixel(const Vector2& pos, Screen& screen) {
+void RTCPURenderer::renderPixel(const Vector2& pos, Image& screen) {
     const Ray ray = scene.camera.generateRay(pos, screen);
     screen.setPixel(pos, rayColor(ray, 0.0, 1.0/0.0));
 }
 
-Vector3 CPURenderer::rayColor(Ray ray, Float t0, Float t1, int depth) {
+Vector3 RTCPURenderer::rayColor(Ray ray, Float t0, Float t1, int depth) {
     if (depth == 10) {
         return Vector3(0,0,0);
     }
@@ -57,7 +57,7 @@ Vector3 CPURenderer::rayColor(Ray ray, Float t0, Float t1, int depth) {
     }
 }
 
-bool CPURenderer::testRay(Ray ray, Float t0, Float t1, RayHit &hit) {
+bool RTCPURenderer::testRay(Ray ray, Float t0, Float t1, RayHit &hit) {
     bool out = false;
     for (auto& geom : scene.geoms) {
         bool tmp = false;
@@ -81,7 +81,7 @@ bool CPURenderer::testRay(Ray ray, Float t0, Float t1, RayHit &hit) {
 // A = d.d t^2
 // B = 2d.(e-c)t
 // C = (e-c).(e-c)
-bool CPURenderer::testSphereRay(const Sphere& sphere, Ray ray, Float t0, Float t1, RayHit &hit) {
+bool RTCPURenderer::testSphereRay(const Sphere& sphere, Ray ray, Float t0, Float t1, RayHit &hit) {
     ray.origin = ray.origin.transformed(sphere.itransform, 1.0);
     ray.dir = ray.dir.transformed(sphere.itransform, 0.0);
     Vector3 ec = ray.origin - sphere.center;
@@ -89,7 +89,7 @@ bool CPURenderer::testSphereRay(const Sphere& sphere, Ray ray, Float t0, Float t
     Float dd = ray.dir.dot(ray.dir);
     Float ecec = ec.dot(ec);
     Float D = dec * dec - dd*(ecec - sphere.radius * sphere.radius);
-    bool test = nearGt(D, 0.0);
+    bool test = nearGte(D, 0.0);
     if (test) {
         const Float t = (-dec - sqrt(D))/dd; // use -sqrt(D) solution that should be the earlier hit
         if (inRange(t, t0, t1)) {
@@ -125,7 +125,7 @@ bool CPURenderer::testSphereRay(const Sphere& sphere, Ray ray, Float t0, Float t
 // c = i(ak-jb)+h(jc-al)+g(bl-kc) / M
 // t = -(f(ak-jb)+e(jc-al)+d(bl-kc) / M)
 // M = a(ei-hf) + b(gf-di) + c(dh-eg)
-bool CPURenderer::testTriangleRay(const Triangle& triangle, Ray ray, Float t0, Float t1, RayHit &hit){
+bool RTCPURenderer::testTriangleRay(const Triangle& triangle, Ray ray, Float t0, Float t1, RayHit &hit){
     Vector3 vA = triangle.vA.transformed(triangle.transform, 1.0);
     Vector3 vB = triangle.vB.transformed(triangle.transform, 1.0);
     Vector3 vC = triangle.vC.transformed(triangle.transform, 1.0);
@@ -146,17 +146,17 @@ bool CPURenderer::testTriangleRay(const Triangle& triangle, Ray ray, Float t0, F
     Float M = a*(e*i-h*f) + b*(g*f-d*i) + c*(d*h-e*g);
     Float t = -((f*(a*k-j*b)+e*(j*c-a*l)+d*(b*l-k*c)) / M);
     //printf("t: %f \n", t);
-    if (!inRange(t,t0,t1)) {
+    if (!nearInRange(t,t0,t1)) {
        return false;
     }
     Float gamma = (i*(a*k-j*b)+h*(j*c-a*l)+g*(b*l-k*c)) / M;
     //printf("g: %f \n", gamma);
-    if (!inRange(gamma, 0.0, 1.0)) {
+    if (!nearInRange(gamma, 0.0, 1.0)) {
        return false;
     }
     Float beta =(j*(e*i-h*f)+k*(g*f-d*i)+l*(d*h-e*g)) / M;
     //printf("b: %f \n", beta);
-    if (!inRange(beta, 0.0, 1.0 - gamma)) {
+    if (!nearInRange(beta, 0.0, 1.0 - gamma)) {
        return false;
     }
     hit.pos = ray.origin + t * ray.dir;

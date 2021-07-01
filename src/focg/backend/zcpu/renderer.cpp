@@ -12,7 +12,7 @@ Scene& ZCPURenderer::sceneRef() {
     return scene;
 }
 
-void ZCPURenderer::render(Screen &screen) {
+void ZCPURenderer::render(Image &screen) {
     zBuffer.resize(screen.getWidth() * screen.getHeight());
     std::fill(zBuffer.begin(), zBuffer.end(), -1.0/0.0);
     width = screen.getWidth();
@@ -36,7 +36,7 @@ void ZCPURenderer::setDepth(int i, int j, Float depth) {
     zBuffer[i*width+j] = depth;
 }
 
-void ZCPURenderer::drawTriangle(Screen &screen, const Triangle &triangle, const Triangle &original) {
+void ZCPURenderer::drawTriangle(Image &screen, const Triangle &triangle, const Triangle &original) {
     Triangle2 tri(Vector2(triangle.vA[0], triangle.vA[1]), Vector2(triangle.vB[0], triangle.vB[1]), Vector2(triangle.vC[0], triangle.vC[1]));
     StdLightSystem& lightSystem = std::get<StdLightSystem>(scene.lightSystem);
     for (int i = 0; i < screen.getWidth(); ++i) {

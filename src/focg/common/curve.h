@@ -2,7 +2,7 @@
 #include <cmath>
 #include <focg/common/util.h>
 #include <focg/common/linalg.h>
-#include <focg/common/screen.h>
+#include <focg/common/image.h>
 
 using DrawFunc = std::function<void(Vector2 pos, Vector3 color)>;
 
@@ -33,7 +33,7 @@ struct Line2 {
          return (*this)(p) / normalizer;
     }
     
-    void draw(Screen& screen, const Vector3& color) {
+    void draw(Image& screen, const Vector3& color) {
         Vector2 px0 = a.x() < b.x() ? a : b;
         Vector2 px1 = a.x() < b.x() ? b : a;
         Vector2 py0 = a.y() < b.y() ? a : b;
@@ -105,11 +105,11 @@ struct Triangle2 {
         return inRange(bc.x(), 0.0, 1.0) && inRange(bc.y(), 0.0, 1.0) && inRange(bc.z(), 0.0, 1.0);
     }
     
-    void draw(Screen& screen, const Vector3& cA, const Vector3& cB, const Vector3& cC) {
+    void draw(Image& screen, const Vector3& cA, const Vector3& cB, const Vector3& cC) {
         for (int i = 0; i < screen.getWidth(); ++i) {
             for (int j = 0; j < screen.getHeight(); ++j) {
                 Vector3 bary = (*this)(Vector2(i,j));
-                if (inRangeExclude(bary.x(), 0.0, 1.0) && inRangeExclude(bary.y(), 0.0, 1.0) && inRangeExclude(bary.z(), 0.0, 1.0)) {
+                if (nearInRange(bary.x(), 0.0, 1.0) && nearInRange(bary.y(), 0.0, 1.0) && nearInRange(bary.z(), 0.0, 1.0)) {
                     Vector3 color = bary.x() * cA + bary.y() * cB + bary.z() * cC;
                     screen.setPixel(i, j, color);
                 }

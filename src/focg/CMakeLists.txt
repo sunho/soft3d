@@ -3,10 +3,11 @@ set(SOURCE_LIST
     common/linalg.h
     common/geom.h
     common/curve.h
-    common/screen.h
+    common/image.h
     common/util.h
     common/transform.h
     common/scene.h
+    common/filter.h
     backend/interface.h
     backend/rtcpu/renderer.h
     backend/rtcpu/renderer.cpp

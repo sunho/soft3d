@@ -2,9 +2,9 @@
 #include <focg/common/linalg.h>
 #include <vector>
 
-struct Screen {
-    Screen() = delete;
-    explicit Screen(size_t width, size_t height) : width(width), height(height), buffer(width*height) {
+struct Image {
+    Image() = delete;
+    explicit Image(size_t width, size_t height) : width(width), height(height), buffer(width*height) {
         std::fill(buffer.begin(), buffer.end(), 0xFFFFFFFF);
     }
     
@@ -34,8 +34,8 @@ struct Screen {
         return buffer.data();
     }
     
-    Screen antialias() {
-        Screen out(width, height);
+    Image antialias() {
+        Image out(width, height);
         for (int i = 1; i < width-1; ++i) {
             for (int j = 1; j < height-1; ++j) {
                 Vector3 color;

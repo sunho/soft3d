@@ -10,15 +10,15 @@ struct RayHit {
     Shade shade;
 };
 
-struct CPURenderer : public Renderer {
-    CPURenderer();
-    ~CPURenderer();
+struct RTCPURenderer : public Renderer {
+    RTCPURenderer();
+    ~RTCPURenderer();
     
     Scene& sceneRef() override;
-    void render(Screen& screen) override;
+    void render(Image& screen) override;
 
 private:
-    void renderPixel(const Vector2& pos, Screen& screen);
+    void renderPixel(const Vector2& pos, Image& screen);
     Vector3 rayColor(Ray ray, Float t0, Float t1, int depth = 0);
 
     bool testRay(Ray ray, Float t0, Float t1, RayHit &hit);

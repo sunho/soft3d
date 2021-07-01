@@ -5,7 +5,7 @@
 #include <focg/common/geom.h>
 #include <focg/common/linalg.h>
 #include <focg/common/curve.h>
-#include <focg/common/screen.h>
+#include <focg/common/image.h>
 #include <focg/common/transform.h>
 
 struct Ray {
@@ -22,14 +22,14 @@ struct Camera {
     explicit Camera(Vector3 e, Basis basis, Float focal) : e(e), basis(basis), focal(focal) {
     }
     
-    Ray generateRay(const Vector2& pos, const Screen& screen) {
+    Ray generateRay(const Vector2& pos, const Image& screen) {
         const Float u = (pos.x() + 0.5) / screen.getWidth() - 0.5;
         const Float v = (pos.y() + 0.5) / screen.getHeight() - 0.5;
         const Vector3 dir = -1*focal* basis.w + u * basis.u + v * basis.v;
         return Ray { e , dir.normalized() };
     }
     
-    Matrix VPOV(const Screen& screen) {
+    Matrix VPOV(const Image& screen) {
         const Matrix v = viewMatrix(basis, e);
         const Matrix p = perspectiveProjectionMatrix(-1.0, -2.0);
         const Matrix o = orthProjectionMatrix(-0.5, 0.5, -0.5, 0.5, -0.5, -2.0);
