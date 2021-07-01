@@ -1,5 +1,4 @@
 set(SOURCE_LIST
-    common/loader.h
     common/linalg.h
     common/geom.h
     common/curve.h
@@ -8,6 +7,9 @@ set(SOURCE_LIST
     common/transform.h
     common/scene.h
     common/filter.h
+    engine/loader.h
+    engine/engine.h
+    engine/engine.cpp
     backend/interface.h
     backend/rtcpu/renderer.h
     backend/rtcpu/renderer.cpp
@@ -18,8 +20,8 @@ set(SOURCE_LIST
 )
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SOURCE_LIST})
-
 add_library(focg ${SOURCE_LIST})
+target_link_libraries(focg PRIVATE glfw glad)
 target_include_directories(focg PUBLIC .. ${CMAKE_CURRENT_BINARY_DIR}/..)
 
 add_executable(

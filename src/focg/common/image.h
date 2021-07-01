@@ -3,7 +3,7 @@
 #include <vector>
 
 struct Image {
-    Image() = delete;
+    Image() = default;
     explicit Image(size_t width, size_t height) : width(width), height(height), buffer(width*height) {
         std::fill(buffer.begin(), buffer.end(), 0xFFFFFFFF);
     }
@@ -63,7 +63,7 @@ struct Image {
     }
     
 private:
-    size_t width;
-    size_t height;
+    size_t width{0};
+    size_t height{0};
     std::vector<uint32_t> buffer; // rgba_uint8
 };

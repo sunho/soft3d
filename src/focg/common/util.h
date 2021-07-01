@@ -1,5 +1,6 @@
 #pragma once
 
+#include <ctime>
 #include <focg/common/linalg.h>
 #include <numeric>
 
@@ -37,6 +38,10 @@ inline Float clamp(Float x, Float min, Float max) {
 
 inline Float clampToNormal(Float x) {
     return clamp(x, 0.0, 1.0);
+}
+
+inline double clockToMs(clock_t ticks){
+    return (ticks/(double)CLOCKS_PER_SEC)*1000.0;
 }
 
 template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
