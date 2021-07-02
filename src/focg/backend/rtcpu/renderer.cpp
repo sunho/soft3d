@@ -52,7 +52,7 @@ Vector3 RTCPURenderer::rayColor(Ray ray, Float t0, Float t1, int depth) {
 
         return pixel;
     } else {
-        return Vector3(1.0, 1.0, 1.0);
+        return Vector3(0.0, 0.0, 0.0);
     }
 }
 

@@ -294,10 +294,24 @@ static Image filterImage(Image image, Sequence1 filter) {
             for (int j = y - filter.getRadius(); j <= y + filter.getRadius(); ++j) {
                 if (j < 0 || j >= image.getHeight())
                     continue;
-                pixel += cache[y] * filter[y - j + filter.getRadius()];
+                pixel += cache[j] * filter[y - j + filter.getRadius()];
             }
             out.setPixel(x, y, pixel);
         }
     }
     return out;
+}
+
+static Sequence1 discretify(ContFilter1 filter) {
+    Sequence1 out(filter.getRadius() * 2 + 1);
+    for (int i = 0; i < out.getSize(); ++i) {
+        out[i] = filter(i - static_cast<int>(filter.getRadius()));
+    }
+    return out;
+}
+
+static ContFilter1 scaleFilter(ContFilter1 filter, int n) {
+    return ContFilter1(filter.getRadius()*n, [=](Float x) {
+        return filter(x/n) / n;
+    });
 }

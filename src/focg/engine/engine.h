@@ -1,15 +1,21 @@
 #pragma once
 
+#include <optional>
 #include <focg/backend/interface.h>
 #include <focg/common/filter.h>
 
 enum class Backend { RTCPU, ZCPU, RTGL };
 
+struct AAProfile {
+    Sequence1 filter;
+};
+
 struct EngineConfig {
-    size_t width;
-    size_t height;
+    int width;
+    int height;
     int fps;
     Backend renderer;
+    std::optional<AAProfile> aaProfile;
 };
 
 struct Engine;
@@ -27,7 +33,7 @@ struct WindowImpl {
     virtual ~WindowImpl() {
     }
     virtual void setUpdateFunc(UpdateFunc func) = 0;
-    virtual void createWindow(size_t width, size_t height) = 0;
+    virtual void createWindow(int& width, int& height) = 0;
     virtual void runWindowLoop() = 0;
     virtual void setTitle(std::string title) = 0;
     virtual bool pressed(int keycode) = 0;

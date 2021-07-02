@@ -21,7 +21,7 @@ struct GLFWWindowImpl : public WindowImpl {
         }
     }
 
-    void createWindow(size_t width, size_t height) override {
+    void createWindow(int& width, int& height) override {
         if (!glfwInit())
             return;
 
@@ -32,6 +32,7 @@ struct GLFWWindowImpl : public WindowImpl {
         if (!window) {
             return;
         }
+        glfwGetFramebufferSize(window, &width, &height);
         windowWidth = width;
         windowHeight = height;
 
@@ -52,11 +53,6 @@ struct GLFWWindowImpl : public WindowImpl {
     void runWindowLoop() override {
         while (!glfwWindowShouldClose(window)) {
             uint32_t* buffer = updateFunc();
-            glRasterPos2f(-1, -1);
-            int width, height;
-            glfwGetFramebufferSize(window, &width, &height);
-            glViewport(0, 0, width, height);
-            glPixelZoom((double)width / windowWidth, (double)height / windowHeight);
             glClear(GL_COLOR_BUFFER_BIT);
             glDrawPixels(windowWidth, windowHeight, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
             glfwSwapBuffers(window);
@@ -97,9 +93,9 @@ void Engine::initRenderer() {
 void Engine::run(App* app) {
     this->app = app;
     app->init(*this, renderer->sceneRef());
-    screen = Image(conf.width, conf.height);
     window->setUpdateFunc([=]() { return this->update(); });
     window->createWindow(conf.width, conf.height);
+    screen = Image(conf.width, conf.height);
     lastFrame = clock();
     window->runWindowLoop();
 }
@@ -109,7 +105,13 @@ uint32_t* Engine::update() {
     const double dt = clockToMs(currentFrame - lastFrame);
     app->update(*this, renderer->sceneRef(), dt);
     renderer->render(screen);
-    screen.pack();
+    Image newImage;
+    if (conf.aaProfile) {
+        newImage = filterImage(screen, conf.aaProfile->filter);
+        newImage.pack();
+    } else {
+        screen.pack();
+    }
     lastFrame = currentFrame;
 
     const double elapsedTime = clockToMs(clock() - currentFrame);
@@ -126,7 +128,8 @@ uint32_t* Engine::update() {
     }
     window->setTitle(std::string("FOCG (frame time: ") + std::to_string((int)elapsedTime) +
                      "ms, fps: " + std::to_string((int)this->fps()) + ")");
-    return screen.data();
+
+    return conf.aaProfile ? newImage.data() : screen.data();
 }
 
 bool Engine::pressed(int keycode) {
