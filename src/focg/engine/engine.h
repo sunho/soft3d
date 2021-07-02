@@ -1,6 +1,7 @@
 #pragma once
 
 #include <focg/backend/interface.h>
+#include <focg/common/filter.h>
 
 enum class Backend {
     RTCPU,

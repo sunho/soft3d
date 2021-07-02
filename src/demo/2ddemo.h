@@ -169,6 +169,72 @@ struct DrawLineZ : public Demo2D{
     }
 };
 
+struct FilterSeq : public Demo2D {
+    Sequence1 seq;
+    Sequence1 filtered;
+
+
+    FilterSeq() {
+        prepare();
+    }
+    ~FilterSeq() {
+        
+    }
+    
+    void prepare() {
+        const int N = 500;
+        seq = Sequence1(N);
+        filtered = Sequence1(N);
+        for (int i = 0; i < N; ++i) {
+            seq[i] = (rand() % 200) / 200.0;
+        }
+        ContFilter1 filter(2.0, [](Float x) {
+            if (-1.1 <= x && x <= 1.1) {
+                auto out = (-3*pow(1.0-fabs(x), 3.0) + 3*pow(1.0-fabs(x),2.0) + 3*(1.0-fabs(x)) + 1)/6.0;
+                return out;
+            } else {
+                return (pow((2-fabs(x)),3.0))/6.0;
+            }
+        });
+        int s = 3.0;
+        ContFilter1 filter2(2.0*s, [=](Float x) {
+            return filter(x/s)/s;
+        });
+    
+        for (int i = 0; i < N; ++i) {
+            filtered[i] = reconstruct(seq, filter2, i);
+        }
+    }
+    
+    void render(Image &screen, KeyboardState& key) override {
+        screen.clear();
+        prepare();
+        const int columnSize = screen.getWidth() / seq.getSize();
+        
+        for (int i = 0; i < seq.getSize(); ++i) {
+            const int x0 = i * columnSize + (columnSize/2);
+            const int x1 = i * columnSize;
+            const int x2 = (i+1) * columnSize;
+            const Vector2 p0 = Vector2(x0, 200 * filtered[i]);
+            const Vector2 p1 = Vector2(x1, 0);
+            const Vector2 p2 = Vector2(x2, 0);
+            Triangle2 tri(p0,p1,p2);
+            tri.draw(screen, Vector3(0x92daf0), Vector3(1.0,1.0,1.0), Vector3(1.0,1.0,1.0));
+        }
+        
+        for (int i = 0; i < seq.getSize(); ++i) {
+            const int x0 = i * columnSize + (columnSize/2);
+            const int x1 = i * columnSize;
+            const int x2 = (i+1) * columnSize;
+            const Vector2 p0 = Vector2(x0, 200 + 200 * seq[i]);
+            const Vector2 p1 = Vector2(x1, 200);
+            const Vector2 p2 = Vector2(x2, 200);
+            Triangle2 tri(p0,p1,p2);
+            tri.draw(screen, Vector3(0xf59b5b), Vector3(1.0,1.0,1.0), Vector3(0xf59b5b));
+        }
+    }
+};
+
 int runDemo2D(Demo2D* demo) {
     Image screen(WIDTH, HEIGHT);
     if (!glfwInit())
@@ -189,6 +255,7 @@ int runDemo2D(Demo2D* demo) {
     
     while (!glfwWindowShouldClose(window)) {
         demo->render(screen, key);
+        screen.pack();
         glRasterPos2f(-1,-1);
         int width, height;
         glfwGetFramebufferSize(window, &width, &height);
@@ -204,7 +271,8 @@ int runDemo2D(Demo2D* demo) {
 }
 
 #define RUN2D(demo) { \
-Demo2D d = new demo; \
+Demo2D* d = new demo; \
 runDemo2D(d); \
-delete d; \ }
+delete d; \
+}
 

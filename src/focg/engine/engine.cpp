@@ -104,6 +104,7 @@ uint32_t* Engine::update() {
     const double dt = clockToMs(currentFrame-lastFrame);
     app->update(*this, renderer->sceneRef(), dt);
     renderer->render(screen);
+    screen.pack();
     lastFrame = currentFrame;
     
     const double elapsedTime = clockToMs(clock() - currentFrame);

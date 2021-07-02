@@ -40,9 +40,9 @@ void ZCPURenderer::drawTriangle(Image &screen, const Triangle &triangle, const T
     Triangle2 tri(Vector2(triangle.vA[0], triangle.vA[1]), Vector2(triangle.vB[0], triangle.vB[1]), Vector2(triangle.vC[0], triangle.vC[1]));
     StdLightSystem& lightSystem = std::get<StdLightSystem>(scene.lightSystem);
     const int x0 = std::max(std::min({triangle.vA[0], triangle.vB[0], triangle.vC[0]}), 0.0);
-    const int x1 = std::min(std::max({triangle.vA[0], triangle.vB[0], triangle.vC[0]}), (double)screen.getWidth());
+    const int x1 = std::min(std::max({triangle.vA[0], triangle.vB[0], triangle.vC[0]})+1, (double)screen.getWidth());
     const int y0 = std::max(std::min({triangle.vA[1], triangle.vB[1], triangle.vC[1]}), 0.0);
-    const int y1 = std::min(std::max({triangle.vA[1], triangle.vB[1], triangle.vC[1]}), (double)screen.getHeight());
+    const int y1 = std::min(std::max({triangle.vA[1], triangle.vB[1], triangle.vC[1]})+1, (double)screen.getHeight());
     for (int i = x0; i < x1; ++i) {
         for (int j = y0; j < y1; ++j) {
             Vector3 bary = tri(Vector2(i,j));

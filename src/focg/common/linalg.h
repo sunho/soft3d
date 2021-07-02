@@ -196,7 +196,16 @@ struct GVector3 final : public GVector<GVector3<F>, F, 3> {
     explicit GVector3(F x, F y, F z) : GVector<GVector3<F>, F, 3>({x,y, z}) {}
     explicit GVector3(const F* l) : GVector<GVector3<F>, F, 3>(l) {}
     explicit GVector3(const std::vector<F>& l) : GVector<GVector3<F>, F, 3>(l) {}
-
+    explicit GVector3(const uint32_t hex) : GVector<GVector3<F>, F, 3>() {
+        uint8_t r = (hex >> 16) & 0xFF;
+        uint8_t g = (hex >> 8) & 0xFF;
+        uint8_t b = hex & 0xFF;
+        this->data[0] = r / 255.0;
+        this->data[1] = g / 255.0;
+        this->data[2] = b / 255.0;
+    }
+    
+    
     F& x() { return this->data[0]; }
     F& y() { return this->data[1]; }
     F& z() { return this->data[2]; }
