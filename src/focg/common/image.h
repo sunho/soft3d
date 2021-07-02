@@ -1,5 +1,6 @@
 #pragma once
 #include <focg/common/linalg.h>
+#include <focg/common/util.h>
 
 #include <vector>
 

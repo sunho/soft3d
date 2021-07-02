@@ -1,9 +1,12 @@
 #include "engine.h"
 
+// clang-format off
+#include <glad/glad.h>
 #include <GLFW/glfw3.h>
+// clang-format on
+
 #include <focg/backend/rtcpu/renderer.h>
 #include <focg/backend/zcpu/renderer.h>
-#include <glad/glad.h>
 
 #include <chrono>
 #include <thread>

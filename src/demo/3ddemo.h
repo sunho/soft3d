@@ -1,4 +1,3 @@
-#include <GLFW/glfw3.h>
 #include <focg/backend/rtcpu/renderer.h>
 #include <focg/backend/zcpu/renderer.h>
 #include <focg/common/curve.h>
@@ -7,7 +6,6 @@
 #include <focg/common/transform.h>
 #include <focg/engine/engine.h>
 #include <focg/engine/loader.h>
-#include <glad/glad.h>
 
 #include <chrono>
 #include <thread>
