@@ -6,31 +6,31 @@ inline Float deg2rad(Float angle) {
 }
 
 inline Matrix rotate2(Float rad) {
-    return Matrix(2, 2, {cos(rad), -sin(rad), sin(rad), cos(rad)});
+    return Matrix(2, 2, { cos(rad), -sin(rad), sin(rad), cos(rad) });
 }
 
 inline Matrix shearX2(Float s) {
-    return Matrix(2, 2, {1, s, 0, 1});
+    return Matrix(2, 2, { 1, s, 0, 1 });
 }
 
 inline Matrix shearY2(Float s) {
-    return Matrix(2, 2, {1, 0, s, 1});
+    return Matrix(2, 2, { 1, 0, s, 1 });
 }
 
 inline Matrix scale2(Float sx, Float sy) {
-    return Matrix(2, 2, {sx, 0, 0, sy});
+    return Matrix(2, 2, { sx, 0, 0, sy });
 }
 
 inline Matrix scale3(Float sx, Float sy, Float sz) {
-    return Matrix(3, 3, {sx, 0, 0, 0, sy, 0, 0, 0, sz});
+    return Matrix(3, 3, { sx, 0, 0, 0, sy, 0, 0, 0, sz });
 }
 
 inline Matrix toHomo(Matrix m) {
-    Matrix out(4,4);
+    Matrix out(4, 4);
     for (size_t i = 0; i < 3; ++i)
         for (size_t j = 0; j < 3; ++j)
-            out[mi{i,j}] = m[mi{i,j}];
-    out[mi{3,3}] = 1.0;
+            out[mi{ i, j }] = m[mi{ i, j }];
+    out[mi{ 3, 3 }] = 1.0;
     return out;
 }
 
@@ -38,12 +38,9 @@ inline Matrix toHomo(Matrix m) {
 // x * (n/2) + (n-1)/2
 // in matrix form
 inline Matrix viewportMatrix(int width, int height) {
-    return Matrix(4,4,{
-        width/2.0, 0, 0, (width-1)/2.0,
-        0, height / 2.0, 0, (height-1)/2.0,
-        0, 0, 1, 0,
-        0, 0, 0, 1
-    });
+    return Matrix(4, 4,
+                  { width / 2.0, 0, 0, (width - 1) / 2.0, 0, height / 2.0, 0, (height - 1) / 2.0, 0,
+                    0, 1, 0, 0, 0, 0, 1 });
 }
 
 // fixate z looking at the back
@@ -64,12 +61,9 @@ inline Matrix viewportMatrix(int width, int height) {
 // c = -(r+l)/(r-l)
 // x: x*(2/r-l)-(r+l)/(r-l)
 inline Matrix orthProjectionMatrix(Float l, Float r, Float b, Float t, Float n, Float f) {
-    return Matrix(4,4,{
-        2/(r-l), 0, 0, -(r+l)/(r-l),
-        0, 2/(t-b), 0, -(t+b)/(t-b),
-        0, 0, 2/(n-f), -(n+f)/(n-f),
-        0, 0, 0, 1
-    });
+    return Matrix(4, 4,
+                  { 2 / (r - l), 0, 0, -(r + l) / (r - l), 0, 2 / (t - b), 0, -(t + b) / (t - b), 0,
+                    0, 2 / (n - f), -(n + f) / (n - f), 0, 0, 0, 1 });
 }
 
 // d = focal length = n
@@ -80,11 +74,7 @@ inline Matrix orthProjectionMatrix(Float l, Float r, Float b, Float t, Float n, 
 // decided to make it unchanged near n and f
 // n + f - n*f/z (this actually preserve the order)
 inline Matrix perspectiveProjectionMatrix(Float n, Float f) {
-    return Matrix(4,4,{
-        n, 0, 0, 0,
-        0, n, 0, 0,
-        0, 0, n+f, -f*n,
-        0, 0, 1, 0});
+    return Matrix(4, 4, { n, 0, 0, 0, 0, n, 0, 0, 0, 0, n + f, -f * n, 0, 0, 1, 0 });
 }
 
 // convert world frame to camera frame
@@ -94,17 +84,9 @@ inline Matrix perspectiveProjectionMatrix(Float n, Float f) {
 // p_uvw = [u;v;w] * p_xyz
 // T = [u;v;w]
 inline Matrix viewMatrix(const Basis& basis, const Vector3& e) {
-    Matrix s = Matrix(4,4, {
-        basis.u[0], basis.u[1], basis.u[2], 0,
-        basis.v[0], basis.v[1], basis.v[2], 0,
-        basis.w[0], basis.w[1], basis.w[2], 0,
-        0, 0, 0, 1
-    });
-    Matrix t = Matrix(4,4, {
-        1, 0, 0, -e.x(),
-        0, 1, 0, -e.y(),
-        0, 0, 1, -e.z(),
-        0, 0, 0, 1
-    });
-    return s*t;
+    Matrix s = Matrix(4, 4,
+                      { basis.u[0], basis.u[1], basis.u[2], 0, basis.v[0], basis.v[1], basis.v[2],
+                        0, basis.w[0], basis.w[1], basis.w[2], 0, 0, 0, 0, 1 });
+    Matrix t = Matrix(4, 4, { 1, 0, 0, -e.x(), 0, 1, 0, -e.y(), 0, 0, 1, -e.z(), 0, 0, 0, 1 });
+    return s * t;
 }

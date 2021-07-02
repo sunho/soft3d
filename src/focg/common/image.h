@@ -1,23 +1,27 @@
 #pragma once
 #include <focg/common/linalg.h>
+
 #include <vector>
 
 struct Image {
     Image() = default;
-    explicit Image(size_t width, size_t height) : width(width), height(height), buffer(width*height), packed(width*height){
-        std::fill(buffer.begin(), buffer.end(), Vector3(1.0,1.0,1.0));
+    explicit Image(size_t width, size_t height)
+        : width(width), height(height), buffer(width * height), packed(width * height) {
+        std::fill(buffer.begin(), buffer.end(), Vector3(1.0, 1.0, 1.0));
     }
-    
+
     inline Vector3 getPixel(int x, int y) {
-        if (x < 0 || x >= width || y < 0 || y >= height) return Vector3();
-        return buffer[y*width + x];
+        if (x < 0 || x >= width || y < 0 || y >= height)
+            return Vector3();
+        return buffer[y * width + x];
     }
-    
+
     inline void setPixel(int x, int y, const Vector3& rgb) {
-        if (x < 0 || x >= width || y < 0 || y >= height) return;
-        buffer[y*width + x] = rgb;
+        if (x < 0 || x >= width || y < 0 || y >= height)
+            return;
+        buffer[y * width + x] = rgb;
     }
-    
+
     inline void setPixel(const Vector2& pos, const Vector3& rgb) {
         setPixel(pos.x(), pos.y(), rgb);
     }
@@ -31,13 +35,14 @@ struct Image {
     }
 
     inline Vector3 unpackPixel(const uint32_t pixel) {
-        return Vector3((pixel & 0xFF)/255.0, ((pixel & 0xFF00)>> 8)/255.0, ((pixel & 0xFF0000)>> 16)/255.0);
+        return Vector3((pixel & 0xFF) / 255.0, ((pixel & 0xFF00) >> 8) / 255.0,
+                       ((pixel & 0xFF0000) >> 16) / 255.0);
     }
 
     void pack() {
         for (int i = 0; i < width; ++i) {
             for (int j = 0; j < height; ++j) {
-                packed[j*width + i] = packPixel(buffer[j*width+i]);
+                packed[j * width + i] = packPixel(buffer[j * width + i]);
             }
         }
     }
@@ -45,26 +50,26 @@ struct Image {
     uint32_t* data() {
         return packed.data();
     }
-    
+
     const uint32_t* data() const {
         return packed.data();
     }
-    
+
     void clear() {
-        std::fill(buffer.begin(), buffer.end(), Vector3(1.0,1.0,1.0));
+        std::fill(buffer.begin(), buffer.end(), Vector3(1.0, 1.0, 1.0));
     }
 
     size_t getWidth() const {
         return width;
     }
-    
+
     size_t getHeight() const {
         return height;
     }
-    
-private:
-    size_t width{0};
-    size_t height{0};
-    std::vector<Vector3> buffer; // rgba_uint8
-    std::vector<uint32_t> packed; // rgba_uint8
+
+  private:
+    size_t width{ 0 };
+    size_t height{ 0 };
+    std::vector<Vector3> buffer;   // rgba_uint8
+    std::vector<uint32_t> packed;  // rgba_uint8
 };

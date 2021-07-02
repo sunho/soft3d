@@ -3,11 +3,7 @@
 #include <focg/backend/interface.h>
 #include <focg/common/filter.h>
 
-enum class Backend {
-    RTCPU,
-    ZCPU,
-    RTGL
-};
+enum class Backend { RTCPU, ZCPU, RTGL };
 
 struct EngineConfig {
     size_t width;
@@ -19,7 +15,8 @@ struct EngineConfig {
 struct Engine;
 
 struct App {
-    virtual ~App() { }
+    virtual ~App() {
+    }
     virtual void init(Engine& engine, Scene& scene) = 0;
     virtual void update(Engine& engine, Scene& scene, double dt) = 0;
 };
@@ -27,7 +24,8 @@ struct App {
 using UpdateFunc = std::function<uint32_t*()>;
 
 struct WindowImpl {
-    virtual ~WindowImpl() { }
+    virtual ~WindowImpl() {
+    }
     virtual void setUpdateFunc(UpdateFunc func) = 0;
     virtual void createWindow(size_t width, size_t height) = 0;
     virtual void runWindowLoop() = 0;
@@ -44,15 +42,16 @@ struct Engine {
     void run(App* app);
     bool pressed(int keycode);
     double fps();
-private:
+
+  private:
     uint32_t* update();
     void initRenderer();
-    
+
     EngineConfig conf;
-    App* app{nullptr};
+    App* app{ nullptr };
     std::unique_ptr<Renderer> renderer;
     std::unique_ptr<WindowImpl> window;
     Image screen;
-    clock_t lastFrame{0};
+    clock_t lastFrame{ 0 };
     std::array<double, LAST_FPS_COUNT> lastFps;
 };

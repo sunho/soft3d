@@ -1,7 +1,8 @@
 #pragma once
+#include <focg/common/linalg.h>
+
 #include <fstream>
 #include <vector>
-#include <focg/common/linalg.h>
 
 struct ModelTriangle {
     Vector3 a;
@@ -33,23 +34,23 @@ Model loadObj(std::string path) {
             return;
         }
         model.meshes.push_back(Mesh{});
-        Mesh& mesh = model.meshes[model.meshes.size()-1];
-        for (int i = 0; i < vertices.size(); i+=3) {
-            mesh.data.push_back(ModelTriangle{vertices[i], vertices[i+1], vertices[i+2]});
+        Mesh& mesh = model.meshes[model.meshes.size() - 1];
+        for (int i = 0; i < vertices.size(); i += 3) {
+            mesh.data.push_back(ModelTriangle{ vertices[i], vertices[i + 1], vertices[i + 2] });
         }
     };
     bool process = false;
-    while(getline(input, line)) {
+    while (getline(input, line)) {
         auto pos = line.find(" ");
         if (pos != std::string::npos) {
             std::string command = line.substr(0, pos);
             if (command == "o") {
                 flush();
             } else if (command == "v") {
-                double a,b,c;
+                double a, b, c;
                 std::string s = line.substr(pos);
                 sscanf(s.c_str(), "%lf %lf %lf", &a, &b, &c);
-                vertices.push_back(Vector3(a,b,c));
+                vertices.push_back(Vector3(a, b, c));
             }
         }
     }
