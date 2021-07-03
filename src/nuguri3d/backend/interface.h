@@ -1,7 +1,7 @@
 #pragma once
 
-#include <focg/common/image.h>
-#include <focg/common/scene.h>
+#include <nuguri3d/common/image.h>
+#include <nuguri3d/common/scene.h>
 
 struct Renderer {
     Renderer() = default;

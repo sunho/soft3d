@@ -1,4 +1,4 @@
-#include <focg/backend/zcpu/renderer.h>
+#include <nuguri3d/backend/zcpu/renderer.h>
 
 ZCPURenderer::ZCPURenderer() {
 }

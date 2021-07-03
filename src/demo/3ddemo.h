@@ -1,11 +1,11 @@
-#include <focg/backend/rtcpu/renderer.h>
-#include <focg/backend/zcpu/renderer.h>
-#include <focg/common/curve.h>
-#include <focg/common/image.h>
-#include <focg/common/scene.h>
-#include <focg/common/transform.h>
-#include <focg/engine/engine.h>
-#include <focg/engine/loader.h>
+#include <nuguri3d/backend/rtcpu/renderer.h>
+#include <nuguri3d/backend/zcpu/renderer.h>
+#include <nuguri3d/common/curve.h>
+#include <nuguri3d/common/image.h>
+#include <nuguri3d/common/scene.h>
+#include <nuguri3d/common/transform.h>
+#include <nuguri3d/engine/engine.h>
+#include <nuguri3d/engine/loader.h>
 
 #include <chrono>
 #include <thread>

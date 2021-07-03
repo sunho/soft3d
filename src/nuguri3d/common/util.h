@@ -1,6 +1,6 @@
 #pragma once
 
-#include <focg/common/linalg.h>
+#include <nuguri3d/common/linalg.h>
 
 #include <ctime>
 #include <numeric>

@@ -1,7 +1,7 @@
 #pragma once
 
-#include <focg/backend/interface.h>
-#include <focg/common/filter.h>
+#include <nuguri3d/backend/interface.h>
+#include <nuguri3d/common/filter.h>
 
 #include <optional>
 

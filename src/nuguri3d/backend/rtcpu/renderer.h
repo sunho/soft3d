@@ -1,7 +1,7 @@
 #pragma once
 
-#include <focg/backend/interface.h>
-#include <focg/common/scene.h>
+#include <nuguri3d/backend/interface.h>
+#include <nuguri3d/common/scene.h>
 
 struct RayHit {
     Vector3 normal;

@@ -7,6 +7,6 @@
 #include "3ddemo.h"
 
 int main() {
-    RUN3D(ObjLoad)
+    RUN3D(SphereRayTrace)
     return 0;
 }

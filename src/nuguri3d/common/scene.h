@@ -1,9 +1,9 @@
 #pragma once
-#include <focg/common/curve.h>
-#include <focg/common/geom.h>
-#include <focg/common/image.h>
-#include <focg/common/linalg.h>
-#include <focg/common/transform.h>
+#include <nuguri3d/common/curve.h>
+#include <nuguri3d/common/geom.h>
+#include <nuguri3d/common/image.h>
+#include <nuguri3d/common/linalg.h>
+#include <nuguri3d/common/transform.h>
 
 #include <map>
 #include <variant>
