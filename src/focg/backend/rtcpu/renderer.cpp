@@ -40,8 +40,8 @@ Vector3 RTCPURenderer::rayColor(Ray ray, Float t0, Float t1, int depth) {
                 Vector3 h = -1 * ray.dir.normalized() + light.v;
                 h.normalize();
 
-                Float x = std::max(0.0, light.v.dot(hit.normal));
-                Float x2 = std::max(0.0, h.dot(hit.normal));
+                Float x = std::max(0.0f, light.v.dot(hit.normal));
+                Float x2 = std::max(0.0f, h.dot(hit.normal));
                 pixel += light.intensity *
                          (x * hit.shade.diffuse + pow(x2, hit.shade.phong) * hit.shade.specular);
             }

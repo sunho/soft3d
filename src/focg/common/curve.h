@@ -77,6 +77,7 @@ struct Line2 {
 
 // barycentric beta is the signed scaled distance from the l_AC
 // beta = f_ac (x, y) / f_ac(x_b, y_b)
+// f_ac(x_b,y_b) is the area
 struct Triangle2 {
     Line2 acL;
     Line2 abL;

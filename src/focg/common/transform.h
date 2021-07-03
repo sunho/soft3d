@@ -39,8 +39,8 @@ inline Matrix toHomo(Matrix m) {
 // in matrix form
 inline Matrix viewportMatrix(int width, int height) {
     return Matrix(4, 4,
-                  { width / 2.0, 0, 0, (width - 1) / 2.0, 0, height / 2.0, 0, (height - 1) / 2.0, 0,
-                    0, 1, 0, 0, 0, 0, 1 });
+                  { width / 2.0f, 0, 0, (width - 1) / 2.0f, 0, height / 2.0f, 0,
+                    (height - 1) / 2.0f, 0, 0, 1, 0, 0, 0, 0, 1 });
 }
 
 // fixate z looking at the back

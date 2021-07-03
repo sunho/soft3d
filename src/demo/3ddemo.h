@@ -13,10 +13,10 @@
 static EngineConfig engineConf = { .width = 500,
                                    .height = 500,
                                    .fps = 60,
-    .aaProfile = AAProfile {
-        .filter = boxFilter1(1),
-    },
-                                   .renderer = Backend::RTCPU };
+                                   /*  .aaProfile = AAProfile {
+                                         .filter = boxFilter1(1),
+                                     },*/
+                                   .renderer = Backend::ZCPU };
 
 struct ObjLoad : public App {
     Model model;
@@ -88,15 +88,15 @@ struct SphereRayTrace : public App {
                          .specular = Vector3(0.3, 0.3, 0.3),
                          .phong = 100.0 };
         Shade shadewall = { .diffuse = Vector3(0.3, 0.3, 0.3),
-                         .ambient = Vector3(0.8, 0.8, 0.8),
-                         .specular = Vector3(0.3, 0.3, 0.3),
-                         .reflect = Vector3(0.2, 0.2, 0.2),
-                         .phong = 100.0 };
+                            .ambient = Vector3(0.8, 0.8, 0.8),
+                            .specular = Vector3(0.3, 0.3, 0.3),
+                            .reflect = Vector3(0.2, 0.2, 0.2),
+                            .phong = 100.0 };
         Shade shadetri = { .diffuse = Vector3(0xd3e4f5),
-                         .ambient = Vector3(0xd3e4f5),
-                         .specular = Vector3(0.3, 0.3, 0.3),
-                         .reflect = Vector3(0.2, 0.2, 0.2),
-                         .phong = 100.0 };
+                           .ambient = Vector3(0xd3e4f5),
+                           .specular = Vector3(0.3, 0.3, 0.3),
+                           .reflect = Vector3(0.2, 0.2, 0.2),
+                           .phong = 100.0 };
         StdLightSystem lightSystem;
         lightSystem.ambientIntensity = 0.2;
         lightSystem.lights.push_back({ 1.2, Vector3(-0.5, 0.5, 0.5).normalized() });
@@ -109,13 +109,13 @@ struct SphereRayTrace : public App {
         /*scene.geoms.push_back(Triangle(Vector3(-1.0, 1.0, -0.4), Vector3(-1.0, -1.0, -0.7),
                                        Vector3(2.0, 1.0, -0.3), shadetri));
          */
-        scene.geoms.push_back(Triangle(Vector3(-2.0,  0.0, -1.0),
-                                       Vector3(2.0, -1.0, 1.0),  Vector3(2.0,  0.0,  -1.0),shadewall));
-        scene.geoms.push_back(Triangle(Vector3(-2.0, 0.0,  -1.0), Vector3(-2.0, -1.0,  1.0),
+        scene.geoms.push_back(Triangle(Vector3(-2.0, 0.0, -1.0), Vector3(2.0, -1.0, 1.0),
+                                       Vector3(2.0, 0.0, -1.0), shadewall));
+        scene.geoms.push_back(Triangle(Vector3(-2.0, 0.0, -1.0), Vector3(-2.0, -1.0, 1.0),
                                        Vector3(2.0, -1.0, 1.0), shadewall));
         Sphere& sp = std::get<Sphere>(scene.geoms[0]);
-        //sp.transform = toHomo(scale3(1.0, 0.5, 1.0));
-        //sp.itransform = *invertMatrix4x4(sp.transform);
+        // sp.transform = toHomo(scale3(1.0, 0.5, 1.0));
+        // sp.itransform = *invertMatrix4x4(sp.transform);
 
         Basis basis;
         basis.u = Vector3(1.0, 0.0, 0.0);

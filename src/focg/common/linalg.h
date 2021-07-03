@@ -305,11 +305,17 @@ struct GVector2 final : public GVector<GVector2<F>, F, 2> {
     F& y() {
         return this->data[1];
     }
+
     const F& x() const {
         return this->data[0];
     }
     const F& y() const {
         return this->data[1];
+    }
+
+    // set z = 0 and do the thing
+    F cross(const GVector2<F>& other) const {
+        return x() * other.y() - other.x() * y();
     }
 };
 
@@ -416,7 +422,7 @@ GVector3<F> GVector3<F>::transformed(const GMatrix<F>& transform, F w) const {
     return res.trunc();
 }
 
-using Float = double;
+using Float = float;
 using Vector4 = GVector4<Float>;
 using Vector3 = GVector3<Float>;
 using Vector2 = GVector2<Float>;

@@ -11,9 +11,10 @@ struct ZCPURenderer : public Renderer {
     void render(Image& screen) override;
 
   private:
+    void drawPixel(Image& screen, const Vector2& pos, const Vector3& normal, const Shade& shade);
     void drawTriangle(Image& screen, const Triangle& triangle, const Triangle& original);
     void clearDepth();
-    Float getDepth(int i, int j);
+    inline Float getDepth(int i, int j);
     void setDepth(int i, int j, Float depth);
     std::vector<Float> zBuffer;
     int width;

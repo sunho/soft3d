@@ -311,7 +311,5 @@ static Sequence1 discretify(ContFilter1 filter) {
 }
 
 static ContFilter1 scaleFilter(ContFilter1 filter, int n) {
-    return ContFilter1(filter.getRadius()*n, [=](Float x) {
-        return filter(x/n) / n;
-    });
+    return ContFilter1(filter.getRadius() * n, [=](Float x) { return filter(x / n) / n; });
 }
