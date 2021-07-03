@@ -11,6 +11,13 @@ struct Image {
         std::fill(buffer.begin(), buffer.end(), Vector3(1.0, 1.0, 1.0));
     }
 
+    Vector3 lookupClamp(const Vector2& uv) {
+        int i = round(uv.x() * getWidth() - 0.5f);
+        int j = round(uv.y() * getWidth() - 0.5f);
+        return getPixel(std::max(0, std::min(i, getWidth() - 1)),
+                        std::max(0, std::min(j, getHeight() - 1)));
+    }
+
     inline Vector3 getPixel(int x, int y) {
         if (x < 0 || x >= width || y < 0 || y >= height)
             return Vector3();

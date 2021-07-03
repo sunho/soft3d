@@ -2,16 +2,7 @@
 
 #include <nuguri3d/common/image.h>
 
-struct Texture {
-    Image image;
-
-    Vector3 lookupClamp(const Vector2& uv) {
-        int i = round(uv.x() * image.getWidth() - 0.5f);
-        int j = round(uv.y() * image.getWidth() - 0.5f);
-        return image.getPixel(std::max(0, std::min(i, image.getWidth() - 1)),
-                              std::max(0, std::min(j, image.getHeight() - 1)));
-    }
-};
+using TextureId = size_t;
 
 // convert (x,y,z) into spherical coordinates (r, theta, pi) as in physics
 // (like one used in calc of angular velocity)

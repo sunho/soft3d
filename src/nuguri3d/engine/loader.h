@@ -23,4 +23,4 @@ struct Model {
 };
 
 Model loadObj(std::string path);
-Texture loadTexture(std::string path);
+Image loadTexture(std::string path);

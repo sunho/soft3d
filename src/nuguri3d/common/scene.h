@@ -56,8 +56,30 @@ using LightSystem = std::variant<StdLightSystem>;
 struct Scene {
     Scene() = default;
 
+    TextureId createTexture(int width, int height) {
+        const TextureId id = ++lastTextureId;
+        textures.emplace(id, Image(width, height));
+        texturesTable.push_back(&textures.at(id));
+        return id;
+    }
+
+    TextureId registerTexture(Image&& image) {
+        const TextureId id = ++lastTextureId;
+        textures.emplace(id, image);
+        texturesTable.push_back(&textures.at(id));
+        return id;
+    }
+
+    inline Image* getTexture(TextureId id) {
+        return texturesTable[id - 1];
+    }
+
     std::vector<Geometry> geoms;
-    std::list<Texture> textures;
     Camera camera;
     LightSystem lightSystem;
+
+  private:
+    std::vector<Image*> texturesTable;
+    std::map<TextureId, Image> textures;
+    TextureId lastTextureId{ 0 };
 };

@@ -105,9 +105,8 @@ struct SphereRayTrace : public App {
         lightSystem.lights.push_back({ 0.3, Vector3(0.8, -1.0, 0.5).normalized() });
         scene.lightSystem = lightSystem;
 
-        Texture tex = loadTexture("tex.jpeg");
-        scene.textures.push_back(tex);
-        Texture* texPtr = &*scene.textures.begin();
+        Image tex = loadTexture("tex.jpeg");
+        TextureId texId = scene.registerTexture(std::move(tex));
 
         // scene.geoms.push_back(PlainSphere(Vector3(-0.2, 0.0, 0.0), 0.25, shade1));
         scene.geoms.push_back(PlainSphere(Vector3(0.3, 0.0, -0.4), 0.25, shade2));
@@ -118,7 +117,7 @@ struct SphereRayTrace : public App {
                                             Vector3(2.0, 0.0, -1.0), shadewall));
         scene.geoms.push_back(PlainTriangle(Vector3(-2.0, 0.0, -1.0), Vector3(-2.0, -1.0, 1.0),
                                             Vector3(2.0, -1.0, 1.0), shadewall));
-        scene.geoms.push_back(Sphere(Vector3(-0.2, -0.1, 0), 0.25, shade1, texPtr));
+        scene.geoms.push_back(Sphere(Vector3(-0.2, -0.1, 0), 0.25, shade1, texId));
         PlainSphere& sp = std::get<PlainSphere>(scene.geoms[0]);
         // sp.transform = toHomo(scale3(1.0, 0.5, 1.0));
         // sp.itransform = *invertMatrix4x4(sp.transform);

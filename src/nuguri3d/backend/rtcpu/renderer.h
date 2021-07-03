@@ -23,8 +23,7 @@ struct RTCPURenderer : public Renderer {
     Vector3 shadePlain(Ray ray, RayHit hit, const Shade& shade, int depth);
 
     bool testRay(Ray ray, Float t0, Float t1, RayHit& hit);
-    bool testSphereRay(const PlainSphere& sphere, Ray ray, Float t0, Float t1, RayHit& hit);
-    bool testSphereRay2(const Sphere& sphere, Ray ray, Float t0, Float t1, RayHit& hit);
+    bool testSphereRay(const Vector3& e, Float radius, Ray ray, Float t0, Float t1, RayHit& hit);
     bool testTriangleRay(const PlainTriangle& triangle, Ray ray, Float t0, Float t1, RayHit& hit);
 
     Scene scene;

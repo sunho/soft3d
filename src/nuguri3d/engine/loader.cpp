@@ -49,7 +49,7 @@ Model loadObj(std::string path) {
     return model;
 }
 
-Texture loadTexture(std::string path) {
+Image loadTexture(std::string path) {
     int width, height, cn;
     auto* img = stbi_load(path.c_str(), &width, &height, &cn, 0);
     uint32_t* buffer = reinterpret_cast<uint32_t*>(img);
@@ -57,13 +57,12 @@ Texture loadTexture(std::string path) {
         printf("DIE\n");
         std::terminate();
     }
-    Texture out;
-    out.image = Image(width, height);
+    Image out(width, height);
     for (int j = 0; j < height; ++j) {
         for (int i = 0; i < width; ++i) {
             Vector3 color =
-                out.image.unpackPixel(*reinterpret_cast<uint32_t*>(&img[j * width * cn + i * cn]));
-            out.image.setPixel(i, j, color);
+                out.unpackPixel(*reinterpret_cast<uint32_t*>(&img[j * width * cn + i * cn]));
+            out.setPixel(i, j, color);
         }
     }
     return out;
