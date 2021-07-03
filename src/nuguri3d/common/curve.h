@@ -120,3 +120,58 @@ struct Triangle2 {
         }
     }
 };
+
+struct Triangle3 {
+    Vector3 pA;
+    Vector3 pB;
+    Vector3 pC;
+    Vector3 n;
+    Vector3 cA;
+    Vector3 cB;
+    Vector3 cC;
+
+    Triangle3() = default;
+    explicit Triangle3(Vector3 a, Vector3 b, Vector3 c) : pA(a), pB(b), pC(c) {
+        Vector3 ab = pB - pA;
+        Vector3 ac = pC - pA;
+        n = ab.cross(ac).normalized();
+        cA = pC - pB;
+        cB = pA - pC;
+        cC = pB - pA;
+    }
+    // The barycentric coordinates are proportional to the areas of the three subtriangles.
+    // a = A_a / A
+    // A_a = |(c-b)x(p - b)| / 2
+    // A = |(b-a)x(c-a)| / 2
+    // (b-a)x(c-a) = normal (it's perpendicular to the surface)
+    // Note that signity of bc x bp and ab x ac is is same when p is inside the triangle
+    // Use dot product to test this and normalize it cleverly
+    // a = n.(c-b)x(p - b) / |n|^2
+    // = |n| * |(c-b)x(p-b)| * cos(theta) / |n|^2
+    // = |(c-b)x(p-b)| / |n|
+    // = A_a / A
+    // cos(theta) = 1 when it's inside the triangle
+    // Resulting formulas
+    // n = (b-a)x(c-a)
+    // n_a = (c-b)x(p-b)
+    // n_b = (a-c)x(p-c)
+    // n_c = (b-a)x(p-a)
+    // a = n.n_a/|n|^2
+    // b = n.n_b/|n|^2
+    // c = n.n_c/|n|^2
+    Vector3 operator()(const Vector3& p) const {
+        Vector3 nA = cA.cross(p - pB);
+        Vector3 nB = cB.cross(p - pC);
+        Vector3 nC = cC.cross(p - pA);
+        Float n2 = n.norm2();
+        Float a = n.dot(nA) / n2;
+        Float b = n.dot(nB) / n2;
+        Float c = n.dot(nC) / n2;
+        return Vector3(a, b, c);
+    }
+
+    Triangle3 transformed(const Matrix& mat) const {
+        return Triangle3(pA.transformed(mat, 1.0), pB.transformed(mat, 1.0),
+                         pC.transformed(mat, 1.0));
+    }
+};

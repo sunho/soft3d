@@ -16,7 +16,7 @@ static EngineConfig engineConf = { .width = 500,
                                    /*  .aaProfile = AAProfile {
                                          .filter = boxFilter1(1),
                                      },*/
-                                   .renderer = Backend::ZCPU };
+                                   .renderer = Backend::RTCPU };
 
 struct ObjLoad : public App {
     Model model;
@@ -57,14 +57,15 @@ struct ObjLoad : public App {
                          .phong = 100.0 };
 
         Float sz = -0.3;
-        scene.geoms.push_back(Triangle(Vector3(-1.0, 2.0, sz), Vector3(-1.0, -1.0, sz),
-                                       Vector3(2.0, 2.0, sz), shade3));
-        scene.geoms.push_back(Triangle(Vector3(-1.0, -1.0, sz), Vector3(1.0, -2.0, sz),
-                                       Vector3(2.0, 2.0, sz), shade3));
-        scene.geoms.push_back(Sphere(Vector3(0.0, 0.0, -0.15), 0.10, shade2));
+        scene.geoms.push_back(PlainTriangle(Vector3(-1.0, 2.0, sz), Vector3(-1.0, -1.0, sz),
+                                            Vector3(2.0, 2.0, sz), shade3));
+        scene.geoms.push_back(PlainTriangle(Vector3(-1.0, -1.0, sz), Vector3(1.0, -2.0, sz),
+                                            Vector3(2.0, 2.0, sz), shade3));
+        scene.geoms.push_back(PlainSphere(Vector3(0.0, 0.0, -0.15), 0.10, shade2));
 
         for (auto tri : model.meshes[0].data) {
-            scene.geoms.push_back(Triangle(tri.a, tri.b, tri.c, shade1));
+            scene.geoms.push_back(
+                Triangle({ tri.a, tri.nA }, { tri.b, tri.nB }, { tri.c, tri.nC }, shade1));
         }
     }
 
@@ -104,16 +105,21 @@ struct SphereRayTrace : public App {
         lightSystem.lights.push_back({ 0.3, Vector3(0.8, -1.0, 0.5).normalized() });
         scene.lightSystem = lightSystem;
 
-        scene.geoms.push_back(Sphere(Vector3(-0.2, 0.0, 0.0), 0.25, shade1));
-        scene.geoms.push_back(Sphere(Vector3(0.3, 0.0, -0.4), 0.25, shade2));
+        Texture tex = loadTexture("tex.jpeg");
+        scene.textures.push_back(tex);
+        Texture* texPtr = &*scene.textures.begin();
+
+        // scene.geoms.push_back(PlainSphere(Vector3(-0.2, 0.0, 0.0), 0.25, shade1));
+        scene.geoms.push_back(PlainSphere(Vector3(0.3, 0.0, -0.4), 0.25, shade2));
         /*scene.geoms.push_back(Triangle(Vector3(-1.0, 1.0, -0.4), Vector3(-1.0, -1.0, -0.7),
                                        Vector3(2.0, 1.0, -0.3), shadetri));
          */
-        scene.geoms.push_back(Triangle(Vector3(-2.0, 0.0, -1.0), Vector3(2.0, -1.0, 1.0),
-                                       Vector3(2.0, 0.0, -1.0), shadewall));
-        scene.geoms.push_back(Triangle(Vector3(-2.0, 0.0, -1.0), Vector3(-2.0, -1.0, 1.0),
-                                       Vector3(2.0, -1.0, 1.0), shadewall));
-        Sphere& sp = std::get<Sphere>(scene.geoms[0]);
+        scene.geoms.push_back(PlainTriangle(Vector3(-2.0, 0.0, -1.0), Vector3(2.0, -1.0, 1.0),
+                                            Vector3(2.0, 0.0, -1.0), shadewall));
+        scene.geoms.push_back(PlainTriangle(Vector3(-2.0, 0.0, -1.0), Vector3(-2.0, -1.0, 1.0),
+                                            Vector3(2.0, -1.0, 1.0), shadewall));
+        scene.geoms.push_back(Sphere(Vector3(-0.2, -0.1, 0), 0.25, shade1, texPtr));
+        PlainSphere& sp = std::get<PlainSphere>(scene.geoms[0]);
         // sp.transform = toHomo(scale3(1.0, 0.5, 1.0));
         // sp.itransform = *invertMatrix4x4(sp.transform);
 

@@ -3,8 +3,10 @@
 #include <nuguri3d/common/geom.h>
 #include <nuguri3d/common/image.h>
 #include <nuguri3d/common/linalg.h>
+#include <nuguri3d/common/texture.h>
 #include <nuguri3d/common/transform.h>
 
+#include <list>
 #include <map>
 #include <variant>
 #include <vector>
@@ -55,6 +57,7 @@ struct Scene {
     Scene() = default;
 
     std::vector<Geometry> geoms;
+    std::list<Texture> textures;
     Camera camera;
     LightSystem lightSystem;
 };

@@ -11,3 +11,6 @@ add_library(googletest STATIC googletest/googletest/src/gtest_main.cc googletest
 target_include_directories(googletest PUBLIC googletest/googletest/include)
 target_include_directories(googletest PRIVATE googletest/googletest)
 target_compile_definitions(googletest PUBLIC GTEST_HAS_PTHREAD=0)
+
+add_library(stb_image STATIC stb.c)
+target_include_directories(stb_image PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/stb")

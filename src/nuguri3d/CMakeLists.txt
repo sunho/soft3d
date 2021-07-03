@@ -7,9 +7,11 @@ set(SOURCE_LIST
     common/transform.h
     common/scene.h
     common/filter.h
+    common/texture.h
+    engine/loader.cpp
     engine/loader.h
-    engine/engine.h
     engine/engine.cpp
+    engine/engine.h
     backend/interface.h
     backend/rtcpu/renderer.h
     backend/rtcpu/renderer.cpp
@@ -21,7 +23,7 @@ set(SOURCE_LIST
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SOURCE_LIST})
 add_library(nuguri3d ${SOURCE_LIST})
-target_link_libraries(nuguri3d PRIVATE glfw glad)
+target_link_libraries(nuguri3d PRIVATE glfw glad stb_image)
 target_include_directories(nuguri3d PUBLIC .. ${CMAKE_CURRENT_BINARY_DIR}/..)
 
 add_executable(

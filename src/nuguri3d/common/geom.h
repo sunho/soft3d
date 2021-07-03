@@ -1,5 +1,6 @@
 #pragma once
 #include <nuguri3d/common/linalg.h>
+#include <nuguri3d/common/texture.h>
 
 #include <variant>
 
@@ -12,15 +13,15 @@ struct Shade {
     Float phong{ 100.0 };
 };
 
-struct Sphere {
+struct PlainSphere {
     Matrix transform{ I4x4 };
     Matrix itransform{ I4x4 };
     Vector3 center;
     Float radius{ 0.0 };
     Shade shade;
 
-    Sphere() = default;
-    explicit Sphere(Vector3 center, Float radius, Shade shade)
+    PlainSphere() = default;
+    explicit PlainSphere(Vector3 center, Float radius, Shade shade)
         : center(center), radius(radius), shade(shade) {
     }
 
@@ -44,74 +45,68 @@ struct Sphere {
     }
 };
 
-struct Triangle {
+struct Sphere {
+    Vector3 center;
+    Float radius{ 0.0 };
+    Shade shade;
+    Texture* texture;
+
+    Sphere() = default;
+    explicit Sphere(Vector3 center, Float radius, Shade shade, Texture* texture)
+        : center(center), radius(radius), shade(shade), texture(texture) {
+    }
+
+    Float test(const Vector3& p) {
+        Vector3 t = center - p;
+        return t.dot(t) - radius * radius;
+    }
+
+    Vector3 normal(const Vector3& p) const {
+        return (p - center) / radius;
+    }
+};
+
+struct PlainTriangle {
     Matrix transform{ I4x4 };
     Vector3 vA;
     Vector3 vB;
     Vector3 vC;
+    Triangle3 curve;
     Shade shade;
 
-    Triangle() = default;
-    explicit Triangle(Vector3 a, Vector3 b, Vector3 c, Shade shade)
-        : vA(a), vB(b), vC(c), shade(shade) {
-        precompute();
-    }
-
-    void precompute() {
-        Vector3 ab = vB - vA;
-        Vector3 ac = vC - vA;
-        n = ab.cross(ac);
-        // printf("%s %s %s", ab.desc().c_str(), ac.desc().c_str(), n.desc().c_str());
-        cA = vC - vB;
-        cB = vA - vC;
-        cC = vB - vA;
-    }
-
-    // The barycentric coordinates are proportional to the areas of the three subtriangles.
-    // a = A_a / A
-    // A_a = |(c-b)x(p - b)| / 2
-    // A = |(b-a)x(c-a)| / 2
-    // (b-a)x(c-a) = normal (it's perpendicular to the surface)
-    // Note that signity of bc x bp and ab x ac is is same when p is inside the triangle
-    // Use dot product to test this and normalize it cleverly
-    // a = n.(c-b)x(p - b) / |n|^2
-    // = |n| * |(c-b)x(p-b)| * cos(theta) / |n|^2
-    // = |(c-b)x(p-b)| / |n|
-    // = A_a / A
-    // cos(theta) = 1 when it's inside the triangle
-    // Resulting formulas
-    // n = (b-a)x(c-a)
-    // n_a = (c-b)x(p-b)
-    // n_b = (a-c)x(p-c)
-    // n_c = (b-a)x(p-a)
-    // a = n.n_a/|n|^2
-    // b = n.n_b/|n|^2
-    // c = n.n_c/|n|^2
-    Vector3 test(const Vector3& p) {
-        Vector3 nA = cA.cross(p - vB);
-        Vector3 nB = cB.cross(p - vC);
-        Vector3 nC = cC.cross(p - vA);
-        Float n2 = n.norm2();
-        Float a = n.dot(nA) / n2;
-        Float b = n.dot(nB) / n2;
-        Float c = n.dot(nC) / n2;
-        return Vector3(a, b, c);
+    PlainTriangle() = default;
+    explicit PlainTriangle(Vector3 a, Vector3 b, Vector3 c, Shade shade)
+        : vA(a), vB(b), vC(c), shade(shade), curve(a, b, c) {
     }
 
     Vector3 normal(const Vector3& p) const {
-        return n.normalized();
+        return curve.n;
     }
-
-    Triangle transformed(const Matrix& mat) const {
-        return Triangle(vA.transformed(mat, 1.0), vB.transformed(mat, 1.0),
-                        vC.transformed(mat, 1.0), shade);
-    }
-
-  private:
-    Vector3 n;
-    Vector3 cA;
-    Vector3 cB;
-    Vector3 cC;
 };
 
-using Geometry = std::variant<Sphere, Triangle>;
+struct TriangleVertex {
+    Vector3 pos;
+    Vector3 normal;
+    Vector3 tex;
+};
+
+struct Triangle {
+    TriangleVertex vA;
+    TriangleVertex vB;
+    TriangleVertex vC;
+    Triangle3 curve;
+    Shade shade;
+    Texture* texture{ nullptr };
+
+    Triangle() = default;
+    explicit Triangle(TriangleVertex a, TriangleVertex b, TriangleVertex c, Shade shade)
+        : vA(a), vB(b), vC(c), shade(shade), curve(a.pos, b.pos, c.pos) {
+    }
+
+    Vector3 normal(const Vector3& p) const {
+        const Vector3 bary = curve(p);
+        return bary.x() * vA.normal + bary.y() * vB.normal + bary.z() * vC.normal;
+    }
+};
+
+using Geometry = std::variant<PlainSphere, PlainTriangle, Triangle, Sphere>;

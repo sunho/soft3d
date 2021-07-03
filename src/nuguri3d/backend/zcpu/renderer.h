@@ -12,7 +12,9 @@ struct ZCPURenderer : public Renderer {
 
   private:
     void drawPixel(Image& screen, const Vector2& pos, const Vector3& normal, const Shade& shade);
-    void drawTriangle(Image& screen, const Triangle& triangle, const Triangle& original);
+    void drawTriangle(Image& screen, const Triangle3& triangle, const Geometry& geom);
+    Vector3 shadeSingleShadedTriangle(const Vector3& bary, const PlainTriangle& tri);
+    Vector3 shadeTriangle(const Vector3& bary, const Triangle& tri);
     void clearDepth();
     inline Float getDepth(int i, int j);
     void setDepth(int i, int j, Float depth);

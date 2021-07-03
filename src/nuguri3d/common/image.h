@@ -60,11 +60,11 @@ struct Image {
         std::fill(buffer.begin(), buffer.end(), Vector3(1.0, 1.0, 1.0));
     }
 
-    size_t getWidth() const {
+    int getWidth() const {
         return width;
     }
 
-    size_t getHeight() const {
+    int getHeight() const {
         return height;
     }
 
