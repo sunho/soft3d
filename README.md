@@ -9,3 +9,8 @@ These features are all built from scrath by referring to theoretical resources (
 - Phong shading
 - Antialiased texture sampling (spherial/vertex uv)
 - Image filters including Gaussian/bspline filter
+- Reflection (raytracer)
+- Shadow
+- Basic graphics pipeline
+- Perspective correction
+- Parallel shading
