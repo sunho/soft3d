@@ -59,7 +59,7 @@ struct PlainTriangle {
 struct TriangleVertex {
     Vector3 pos;
     Vector3 normal;
-    Vector3 tex;
+    Vector2 tex;
 };
 
 struct Triangle {

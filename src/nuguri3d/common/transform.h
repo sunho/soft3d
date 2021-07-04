@@ -90,3 +90,11 @@ inline Matrix viewMatrix(const Basis& basis, const Vector3& e) {
     Matrix t = Matrix(4, 4, { 1, 0, 0, -e.x(), 0, 1, 0, -e.y(), 0, 0, 1, -e.z(), 0, 0, 0, 1 });
     return s * t;
 }
+
+// Create transformation matrix that orients vector w to vector z
+// https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula
+// Doesn't work this is cross poduct matrix FIXME
+inline Matrix orientMatrix(const Vector3& original, const Vector3& desired) {
+    Vector3 k = original.cross(desired).normalized();
+    return Matrix(3, 3, { 0, -k.z(), k.y(), k.z(), 0, -k.x(), -k.y(), k.x(), 0 });
+}

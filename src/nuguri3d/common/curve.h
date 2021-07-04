@@ -170,8 +170,8 @@ struct Triangle3 {
         return Vector3(a, b, c);
     }
 
-    Triangle3 transformed(const Matrix& mat) const {
-        return Triangle3(pA.transformed(mat, 1.0), pB.transformed(mat, 1.0),
-                         pC.transformed(mat, 1.0));
+    Triangle3 transformed(const Matrix& mat, Vector3& homo) const {
+        return Triangle3(pA.transformed(mat, homo.x()), pB.transformed(mat, homo.y()),
+                         pC.transformed(mat, homo.z()));
     }
 };

@@ -13,6 +13,7 @@ Model loadObj(std::string path) {
     Model model;
     std::vector<Vector3> vertices;
     std::vector<Vector3> normals;
+    std::vector<Vector2> texs;
     std::string line;
     const auto flush = [&]() {
         if (vertices.size() == 0) {
@@ -21,8 +22,14 @@ Model loadObj(std::string path) {
         model.meshes.push_back(Mesh{});
         Mesh& mesh = model.meshes[model.meshes.size() - 1];
         for (int i = 0; i < vertices.size(); i += 3) {
-            mesh.data.push_back(ModelTriangle{ vertices[i], vertices[i + 1], vertices[i + 2],
-                                               normals[i], normals[i + 1], normals[i + 2] });
+            if (texs.size() != 0) {
+                mesh.data.push_back(ModelTriangle{ vertices[i], vertices[i + 1], vertices[i + 2],
+                                                   normals[i], normals[i + 1], normals[i + 2],
+                                                   texs[i], texs[i + 1], texs[i + 2] });
+            } else {
+                mesh.data.push_back(ModelTriangle{ vertices[i], vertices[i + 1], vertices[i + 2],
+                                                   normals[i], normals[i + 1], normals[i + 2] });
+            }
         }
     };
     bool process = false;
@@ -42,6 +49,11 @@ Model loadObj(std::string path) {
                 std::string s = line.substr(pos);
                 sscanf(s.c_str(), "%lf %lf %lf", &a, &b, &c);
                 normals.push_back(Vector3(a, b, c));
+            } else if (command == "vt") {
+                double a, b, c;
+                std::string s = line.substr(pos);
+                sscanf(s.c_str(), "%lf %lf", &a, &b);
+                texs.push_back(Vector2(a, b));
             }
         }
     }

@@ -46,7 +46,7 @@ Vector3 RTCPURenderer::rayColor(Ray ray, Float t0, Float t1, int depth) {
             Shade shade = sphere->shade;
             Vector2 uv = convertSphereTexcoord(hit.pos - sphere->center);
             uv.y() = fmod(uv.y() + 0.5, 1.0);
-            Vector3 color = scene.getTexture(sphere->texture)->lookupClamp(uv);
+            Vector3 color = samplePoint(*scene.textures.get(sphere->texture), uv);
             shade.diffuse = color;
             shade.ambient = color;
             pixel = shadePlain(ray, hit, shade, depth);
@@ -58,17 +58,19 @@ Vector3 RTCPURenderer::rayColor(Ray ray, Float t0, Float t1, int depth) {
 }
 
 Vector3 RTCPURenderer::shadePlain(Ray ray, RayHit hit, const Shade& shade, int depth) {
-    StdLightSystem& lightSystem = std::get<StdLightSystem>(scene.lightSystem);
-    Vector3 pixel = lightSystem.ambientIntensity * shade.ambient;
+    Vector3 pixel = scene.lightSystem.ambientIntensity * shade.ambient;
     RayHit hit2;
-    for (auto light : lightSystem.lights) {
-        if (!testRay(Ray{ hit.pos, light.v }, 0.0001f, 1.0f / 0.0f, hit2)) {
-            Vector3 h = -1 * ray.dir.normalized() + light.v;
-            h.normalize();
+    for (auto& [_, l] : scene.lightSystem.lights) {
+        if (auto light = std::get_if<DirectionalLight>(&l)) {
+            if (!testRay(Ray{ hit.pos, light->v }, 0.0001f, 1.0f / 0.0f, hit2)) {
+                Vector3 h = -1 * ray.dir.normalized() + light->v;
+                h.normalize();
 
-            Float x = std::max(0.0f, light.v.dot(hit.normal));
-            Float x2 = std::max(0.0f, h.dot(hit.normal));
-            pixel += light.intensity * (x * shade.diffuse + pow(x2, shade.phong) * shade.specular);
+                Float x = std::max(0.0f, light->v.dot(hit.normal));
+                Float x2 = std::max(0.0f, h.dot(hit.normal));
+                pixel +=
+                    light->intensity * (x * shade.diffuse + pow(x2, shade.phong) * shade.specular);
+            }
         }
     }
 

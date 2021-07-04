@@ -12,6 +12,9 @@ struct ModelTriangle {
     Vector3 nA;
     Vector3 nB;
     Vector3 nC;
+    Vector2 tA;
+    Vector2 tB;
+    Vector2 tC;
 };
 
 struct Mesh {

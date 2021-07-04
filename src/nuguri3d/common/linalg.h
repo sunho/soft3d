@@ -238,7 +238,7 @@ struct GVector3 final : public GVector<GVector3<F>, F, 3> {
     }
 
     GVector4<F> expand(F w) const;
-    GVector3<F> transformed(const GMatrix<F>& transform, F w) const;
+    GVector3<F> transformed(const GMatrix<F>& transform, F& w) const;
 };
 
 template <typename F>
@@ -360,7 +360,7 @@ struct GMatrix {
     }
 
     template <typename Vec>
-    Vec sliceColumnV(size_t index) {
+    Vec sliceColumnV(size_t index) const {
         std::vector<F> l;
         for (int i = 0; i < height; ++i) {
             l.push_back(data[i * width + index]);
@@ -369,7 +369,7 @@ struct GMatrix {
     }
 
     template <typename Vec>
-    Vec sliceRowV(size_t index) {
+    Vec sliceRowV(size_t index) const {
         return Vec(data.data() + index * height);
     }
 
@@ -414,9 +414,10 @@ struct GMatrix {
 };
 
 template <typename F>
-GVector3<F> GVector3<F>::transformed(const GMatrix<F>& transform, F w) const {
+GVector3<F> GVector3<F>::transformed(const GMatrix<F>& transform, F& w) const {
     GVector4<F> res = transform.template mul<GVector4<F>>(expand(w));
     if (w != 0.0) {
+        w = res.w();
         res /= res.w();
     }
     return res.trunc();
@@ -431,9 +432,19 @@ using Matrix = GMatrix<Float>;
 constexpr Float PI = 3.14159265358979323846;
 
 struct Basis {
-    Vector3 u;
-    Vector3 v;
-    Vector3 w;
+    Basis() = default;
+    Basis(const Matrix& mat)
+        : u(mat.sliceColumnV<Vector3>(0))
+        , v(mat.sliceColumnV<Vector3>(1))
+        , w(mat.sliceColumnV<Vector3>(2)) {
+    }
+    Vector3 u{ 1.0f, 0.0f, 0.0f };
+    Vector3 v{ 0.0f, 1.0f, 0.0f };
+    Vector3 w{ 0.0f, 0.0f, 1.0f };
+
+    Matrix asMatrix() const {
+        return Matrix(3, 3, { u[0], v[0], w[0], u[1], v[1], w[1], u[2], v[2], w[2] });
+    }
 };
 
 static Matrix I4x4 = Matrix(4, 4, { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 });

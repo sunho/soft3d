@@ -16,7 +16,7 @@ static EngineConfig engineConf = { .width = 500,
                                    /*  .aaProfile = AAProfile {
                                          .filter = boxFilter1(1),
                                      },*/
-                                   .renderer = Backend::RTCPU };
+                                   .renderer = Backend::ZCPU };
 
 struct ObjLoad : public App {
     Model model;
@@ -27,16 +27,20 @@ struct ObjLoad : public App {
     }
 
     void init(Engine& engine, Scene& scene) override {
+        Image base = loadTexture("base.png");
+        TextureId baseId = scene.textures.move(std::move(base));
         model = loadObj("model.obj");
         Basis basis;
         basis.u = Vector3(1.0, 0.0, 0.0);
         basis.v = Vector3(0.0, 1.0, 0.0);
         basis.w = Vector3(0.0, 0.0, 1.0);
         scene.camera = Camera(Vector3(0.0, 0.0, 1.5), basis, 1.0);
-        StdLightSystem lightSystem;
+        LightSystem lightSystem{};
         lightSystem.ambientIntensity = 0.1;
-        lightSystem.lights.push_back({ 1.2, Vector3(-0.5, 0.5, 0.5).normalized() });
-        lightSystem.lights.push_back({ 0.3, Vector3(-0.8, -1.0, 0.5).normalized() });
+        lightSystem.lights.move(
+            std::move(DirectionalLight{ 1.2, Vector3(-0.5, 0.5, 0.5).normalized() }));
+        lightSystem.lights.move(
+            std::move(DirectionalLight{ 0.3, Vector3(-0.8, -1.0, 0.5).normalized() }));
         scene.lightSystem = lightSystem;
 
         Shade shade1 = { .diffuse = Vector3(0.5, 1.0, 0.5),
@@ -50,22 +54,24 @@ struct ObjLoad : public App {
                          .specular = Vector3(0.3, 0.3, 0.3),
                          .reflect = Vector3(0.2, 0.2, 0.2),
                          .phong = 100.0 };
-        Shade shade3 = { .diffuse = Vector3(0.7, 0.7, 0.7),
-                         .ambient = Vector3(0.7, 0.7, 0.7),
-                         .specular = Vector3(0.3, 0.3, 0.3),
-                         .reflect = Vector3(0.2, 0.2, 0.2),
-                         .phong = 100.0 };
+        Shade shadewall = { .diffuse = Vector3(0.7, 0.7, 0.7),
+                            .ambient = Vector3(0.7, 0.7, 0.7),
+                            .specular = Vector3(0.3, 0.3, 0.3),
+                            .reflect = Vector3(0.2, 0.2, 0.2),
+                            .phong = 100.0 };
 
         Float sz = -0.3;
-        scene.geoms.push_back(PlainTriangle(Vector3(-1.0, 2.0, sz), Vector3(-1.0, -1.0, sz),
-                                            Vector3(2.0, 2.0, sz), shade3));
-        scene.geoms.push_back(PlainTriangle(Vector3(-1.0, -1.0, sz), Vector3(1.0, -2.0, sz),
-                                            Vector3(2.0, 2.0, sz), shade3));
+        scene.geoms.push_back(PlainTriangle(Vector3(-2.0, 0.3, -1.0), Vector3(2.0, -1.0, 1.0),
+                                            Vector3(2.0, 0.3, -1.0), shadewall));
+        scene.geoms.push_back(PlainTriangle(Vector3(-2.0, 0.3, -1.0), Vector3(-2.0, -1.0, 1.0),
+                                            Vector3(2.0, -1.0, 1.0), shadewall));
         scene.geoms.push_back(PlainSphere(Vector3(0.0, 0.0, -0.15), 0.10, shade2));
 
         for (auto tri : model.meshes[0].data) {
-            scene.geoms.push_back(
-                Triangle({ tri.a, tri.nA }, { tri.b, tri.nB }, { tri.c, tri.nC }, shade1));
+            auto tt = Triangle({ tri.a, tri.nA, tri.tA }, { tri.b, tri.nB, tri.tB },
+                               { tri.c, tri.nC, tri.tC }, shade1);
+            tt.texture = baseId;
+            scene.geoms.push_back(tt);
         }
     }
 
@@ -98,15 +104,18 @@ struct SphereRayTrace : public App {
                            .specular = Vector3(0.3, 0.3, 0.3),
                            .reflect = Vector3(0.2, 0.2, 0.2),
                            .phong = 100.0 };
-        StdLightSystem lightSystem;
+        LightSystem lightSystem;
         lightSystem.ambientIntensity = 0.2;
-        lightSystem.lights.push_back({ 1.2, Vector3(-0.5, 0.5, 0.5).normalized() });
-        lightSystem.lights.push_back({ 0.3, Vector3(-0.8, -1.0, 0.5).normalized() });
-        lightSystem.lights.push_back({ 0.3, Vector3(0.8, -1.0, 0.5).normalized() });
+        lightSystem.lights.move(
+            std::move(DirectionalLight{ 1.2, Vector3(-0.5, 0.5, 0.5).normalized() }));
+        lightSystem.lights.move(
+            std::move(DirectionalLight{ 0.3, Vector3(-0.8, -1.0, 0.5).normalized() }));
+        lightSystem.lights.move(
+            std::move(DirectionalLight{ 0.3, Vector3(0.8, -1.0, 0.5).normalized() }));
         scene.lightSystem = lightSystem;
 
         Image tex = loadTexture("tex.jpeg");
-        TextureId texId = scene.registerTexture(std::move(tex));
+        TextureId texId = scene.textures.move(std::move(tex));
 
         // scene.geoms.push_back(PlainSphere(Vector3(-0.2, 0.0, 0.0), 0.25, shade1));
         scene.geoms.push_back(Sphere(Vector3(0.3, 0.0, -0.4), 0.25, shade1, texId));
