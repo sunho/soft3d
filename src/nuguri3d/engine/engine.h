@@ -3,6 +3,7 @@
 #include <nuguri3d/backend/interface.h>
 #include <nuguri3d/common/filter.h>
 
+#include <chrono>
 #include <optional>
 
 enum class Backend { RTCPU, ZCPU, RTGL };
@@ -59,6 +60,6 @@ struct Engine {
     std::unique_ptr<Renderer> renderer;
     std::unique_ptr<WindowImpl> window;
     Image screen;
-    clock_t lastFrame{ 0 };
+    std::chrono::time_point<std::chrono::system_clock> lastFrame;
     std::array<double, LAST_FPS_COUNT> lastFps;
 };

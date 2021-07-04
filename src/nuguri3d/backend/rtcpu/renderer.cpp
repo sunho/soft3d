@@ -1,6 +1,9 @@
 #include "renderer.h"
 
-RTCPURenderer::RTCPURenderer() {
+constexpr int THREAD_NUM = 8;
+constexpr int MAX_JOB = 2000 * 2000;
+
+RTCPURenderer::RTCPURenderer() : threadPool(THREAD_NUM, MAX_JOB) {
 }
 
 RTCPURenderer::~RTCPURenderer() {
@@ -11,12 +14,15 @@ Scene& RTCPURenderer::sceneRef() {
 }
 
 void RTCPURenderer::render(Image& screen) {
+    threadPool.setJobFunc([&](Vector2 pos) { renderPixel(pos, screen); });
+
     for (int i = 0; i < screen.getWidth(); ++i) {
         for (int j = 0; j < screen.getHeight(); ++j) {
             Vector2 pos(i, j);
-            renderPixel(pos, screen);
+            threadPool.addJob(pos);
         }
     }
+    threadPool.flush(THREAD_NUM);
 }
 
 void RTCPURenderer::renderPixel(const Vector2& pos, Image& screen) {
@@ -38,8 +44,9 @@ Vector3 RTCPURenderer::rayColor(Ray ray, Float t0, Float t1, int depth) {
             pixel = shadePlain(ray, hit, triangle->shade, depth);
         } else if (auto sphere = std::get_if<Sphere>(hit.geom)) {
             Shade shade = sphere->shade;
-            Vector3 color =
-                scene.getTexture(sphere->texture)->lookupClamp(convertSphereTexcoord(hit.pos));
+            Vector2 uv = convertSphereTexcoord(hit.pos - sphere->center);
+            uv.y() = fmod(uv.y() + 0.5, 1.0);
+            Vector3 color = scene.getTexture(sphere->texture)->lookupClamp(uv);
             shade.diffuse = color;
             shade.ambient = color;
             pixel = shadePlain(ray, hit, shade, depth);
@@ -155,9 +162,9 @@ bool RTCPURenderer::testSphereRay(const Vector3& e, Float radius, Ray ray, Float
 // M = a(ei-hf) + b(gf-di) + c(dh-eg)
 bool RTCPURenderer::testTriangleRay(const PlainTriangle& triangle, Ray ray, Float t0, Float t1,
                                     RayHit& hit) {
-    Vector3 vA = triangle.vA.transformed(triangle.transform, 1.0f);
-    Vector3 vB = triangle.vB.transformed(triangle.transform, 1.0f);
-    Vector3 vC = triangle.vC.transformed(triangle.transform, 1.0f);
+    Vector3 vA = triangle.vA;
+    Vector3 vB = triangle.vB;
+    Vector3 vC = triangle.vC;
     Float a = vA.x() - vB.x();
     Float b = vA.y() - vB.y();
     Float c = vA.z() - vB.z();

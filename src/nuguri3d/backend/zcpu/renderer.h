@@ -2,6 +2,7 @@
 
 #include <nuguri3d/backend/interface.h>
 #include <nuguri3d/common/scene.h>
+#include <nuguri3d/common/threadpool.h>
 
 struct ZCPURenderer : public Renderer {
     ZCPURenderer();
@@ -19,6 +20,7 @@ struct ZCPURenderer : public Renderer {
     inline Float getDepth(int i, int j);
     void setDepth(int i, int j, Float depth);
     std::vector<Float> zBuffer;
+    ThreadPool<std::tuple<int, int>> threadPool;
     int width;
     Scene scene;
 };

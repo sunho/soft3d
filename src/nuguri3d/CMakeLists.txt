@@ -8,6 +8,7 @@ set(SOURCE_LIST
     common/scene.h
     common/filter.h
     common/texture.h
+    common/threadpool.h
     engine/loader.cpp
     engine/loader.h
     engine/engine.cpp

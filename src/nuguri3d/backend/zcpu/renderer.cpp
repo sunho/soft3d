@@ -1,6 +1,9 @@
 #include <nuguri3d/backend/zcpu/renderer.h>
 
-ZCPURenderer::ZCPURenderer() {
+constexpr int THREAD_NUM = 8;
+constexpr int MAX_JOB = 2000 * 2000;
+
+ZCPURenderer::ZCPURenderer() : threadPool(THREAD_NUM, MAX_JOB) {
 }
 
 ZCPURenderer::~ZCPURenderer() {
@@ -55,20 +58,33 @@ void ZCPURenderer::drawTriangle(Image &screen, const Triangle3 &triangle, const 
     } else if (auto triangle = std::get_if<Triangle>(&geom)) {
         shader = [=](const Vector3 &bary) { return this->shadeTriangle(bary, *triangle); };
     }
-    for (int j = y0; j < y1; ++j) {
-        for (int i = x0; i < x1; ++i) {
-            Vector3 bary = tri(Vector2(i, j));
-            if (nearInRange(bary.x(), 0.0, 1.0) && nearInRange(bary.y(), 0.0, 1.0) &&
-                nearInRange(bary.z(), 0.0, 1.0)) {
-                Float depth = bary.x() * triangle.pA.z() + bary.y() * triangle.pB.z() +
-                              bary.z() * triangle.pC.z();
-                if (getDepth(i, j) > depth)
-                    continue;
-                setDepth(i, j, depth);
-                screen.setPixel(i, j, shader(bary));
+    threadPool.setJobFunc([x0, x1, &screen, &shader, tri, triangle, this](std::tuple<int, int> co) {
+        auto [is, ie] = co;
+        for (int j = is; j < ie; ++j) {
+            for (int i = x0; i < x1; ++i) {
+                Vector3 bary = tri(Vector2(i, j));
+                if (nearInRange(bary.x(), 0.0, 1.0) && nearInRange(bary.y(), 0.0, 1.0) &&
+                    nearInRange(bary.z(), 0.0, 1.0)) {
+                    Float depth = bary.x() * triangle.pA.z() + bary.y() * triangle.pB.z() +
+                                  bary.z() * triangle.pC.z();
+                    if (this->getDepth(i, j) > depth)
+                        continue;
+                    setDepth(i, j, depth);
+                    screen.setPixel(i, j, shader(bary));
+                }
             }
         }
+    });
+
+    int size = (y1 - y0) / THREAD_NUM;
+    for (int i = 0; i < THREAD_NUM; ++i) {
+        if (i == THREAD_NUM - 1) {
+            threadPool.addJob(std::make_tuple(y0 + size * i, y1));
+        } else {
+            threadPool.addJob(std::make_tuple(y0 + size * i, y0 + size * (i + 1)));
+        }
     }
+    threadPool.flush(THREAD_NUM);
 }
 
 Vector3 ZCPURenderer::shadeSingleShadedTriangle(const Vector3 &bary, const PlainTriangle &tri) {

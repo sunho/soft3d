@@ -26,7 +26,7 @@ struct Line2 {
         slope = -AB.x() / AB.y();
     }
 
-    Float operator()(const Vector2& p) {
+    Float operator()(const Vector2& p) const {
         return AB.dot(p) + C;
     }
 
@@ -95,7 +95,7 @@ struct Triangle2 {
         fC = abL(c);
     }
 
-    Vector3 operator()(const Vector2& p) {
+    Vector3 operator()(const Vector2& p) const {
         Float b = acL(p) / fB;
         Float c = abL(p) / fC;
         Float a = 1.0 - b - c;

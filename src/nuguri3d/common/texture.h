@@ -14,6 +14,6 @@ using TextureId = size_t;
 static Vector2 convertSphereTexcoord(const Vector3& pos) {
     Float r = pos.norm();
     Float u = (PI + atan2(pos.y(), pos.x())) / (2 * PI);
-    Float v = (acos(pos.z() / r)) / PI;
+    Float v = (asin(pos.z() / r)) / PI;
     return Vector2(u, v);
 }

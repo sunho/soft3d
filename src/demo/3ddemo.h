@@ -82,7 +82,7 @@ struct SphereRayTrace : public App {
     void init(Engine& engine, Scene& scene) override {
         Shade shade1 = { .diffuse = Vector3(0x9dcdfc),
                          .ambient = Vector3(0x9dcdfc),
-                         .specular = Vector3(0.3, 0.3, 0.3),
+                         .specular = Vector3(0.1, 0.1, 0.1),
                          .phong = 100.0 };
         Shade shade2 = { .diffuse = Vector3(0xfb9dfc),
                          .ambient = Vector3(0xfb9dfc),
@@ -109,7 +109,7 @@ struct SphereRayTrace : public App {
         TextureId texId = scene.registerTexture(std::move(tex));
 
         // scene.geoms.push_back(PlainSphere(Vector3(-0.2, 0.0, 0.0), 0.25, shade1));
-        scene.geoms.push_back(PlainSphere(Vector3(0.3, 0.0, -0.4), 0.25, shade2));
+        scene.geoms.push_back(Sphere(Vector3(0.3, 0.0, -0.4), 0.25, shade1, texId));
         /*scene.geoms.push_back(Triangle(Vector3(-1.0, 1.0, -0.4), Vector3(-1.0, -1.0, -0.7),
                                        Vector3(2.0, 1.0, -0.3), shadetri));
          */
@@ -118,7 +118,7 @@ struct SphereRayTrace : public App {
         scene.geoms.push_back(PlainTriangle(Vector3(-2.0, 0.0, -1.0), Vector3(-2.0, -1.0, 1.0),
                                             Vector3(2.0, -1.0, 1.0), shadewall));
         scene.geoms.push_back(Sphere(Vector3(-0.2, -0.1, 0), 0.25, shade1, texId));
-        PlainSphere& sp = std::get<PlainSphere>(scene.geoms[0]);
+
         // sp.transform = toHomo(scale3(1.0, 0.5, 1.0));
         // sp.itransform = *invertMatrix4x4(sp.transform);
 

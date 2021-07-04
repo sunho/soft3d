@@ -51,6 +51,7 @@ Model loadObj(std::string path) {
 
 Image loadTexture(std::string path) {
     int width, height, cn;
+    stbi_set_flip_vertically_on_load(1);
     auto* img = stbi_load(path.c_str(), &width, &height, &cn, 0);
     uint32_t* buffer = reinterpret_cast<uint32_t*>(img);
     if (!img) {

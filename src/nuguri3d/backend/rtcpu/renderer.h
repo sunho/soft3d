@@ -2,6 +2,7 @@
 
 #include <nuguri3d/backend/interface.h>
 #include <nuguri3d/common/scene.h>
+#include <nuguri3d/common/threadpool.h>
 
 struct RayHit {
     Vector3 normal;
@@ -25,6 +26,8 @@ struct RTCPURenderer : public Renderer {
     bool testRay(Ray ray, Float t0, Float t1, RayHit& hit);
     bool testSphereRay(const Vector3& e, Float radius, Ray ray, Float t0, Float t1, RayHit& hit);
     bool testTriangleRay(const PlainTriangle& triangle, Ray ray, Float t0, Float t1, RayHit& hit);
+
+    ThreadPool<Vector2> threadPool;
 
     Scene scene;
 };

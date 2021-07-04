@@ -96,13 +96,14 @@ void Engine::run(App* app) {
     window->setUpdateFunc([=]() { return this->update(); });
     window->createWindow(conf.width, conf.height);
     screen = Image(conf.width, conf.height);
-    lastFrame = clock();
+    lastFrame = std::chrono::system_clock::now();
     window->runWindowLoop();
 }
 
 uint32_t* Engine::update() {
-    const clock_t currentFrame = clock();
-    const double dt = clockToMs(currentFrame - lastFrame);
+    const auto currentFrame = std::chrono::system_clock::now();
+    const int dt =
+        std::chrono::duration_cast<std::chrono::milliseconds>(currentFrame - lastFrame).count();
     app->update(*this, renderer->sceneRef(), dt);
     renderer->render(screen);
     Image newImage;
@@ -114,18 +115,19 @@ uint32_t* Engine::update() {
     }
     lastFrame = currentFrame;
 
-    const double elapsedTime = clockToMs(clock() - currentFrame);
+    const auto diff = std::chrono::system_clock::now() - currentFrame;
+    const int elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(diff).count();
     const double fps = 1000.0 / dt;
     for (int i = 1; i < lastFps.size(); ++i) {
         lastFps[i] = lastFps[i - 1];
     }
     lastFps[0] = fps;
 
-    if (fps > conf.fps) {
+    /*if (fps > conf.fps) {
         const double desiredMs = 1000.0 / conf.fps;
         std::this_thread::sleep_for(
             std::chrono::milliseconds(static_cast<int>(desiredMs - elapsedTime) + 1));
-    }
+    }*/
     window->setTitle(std::string("FOCG (frame time: ") + std::to_string((int)elapsedTime) +
                      "ms, fps: " + std::to_string((int)this->fps()) + ")");
 
