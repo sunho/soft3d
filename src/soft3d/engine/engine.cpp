@@ -5,8 +5,8 @@
 #include <GLFW/glfw3.h>
 // clang-format on
 
-#include <nuguri3d/backend/rtcpu/renderer.h>
-#include <nuguri3d/backend/zcpu/renderer.h>
+#include <soft3d/backend/rtcpu/renderer.h>
+#include <soft3d/backend/zcpu/renderer.h>
 
 #include <chrono>
 #include <thread>

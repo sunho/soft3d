@@ -1,11 +1,11 @@
-#include <nuguri3d/backend/rtcpu/renderer.h>
-#include <nuguri3d/backend/zcpu/renderer.h>
-#include <nuguri3d/common/curve.h>
-#include <nuguri3d/common/image.h>
-#include <nuguri3d/common/scene.h>
-#include <nuguri3d/common/transform.h>
-#include <nuguri3d/engine/engine.h>
-#include <nuguri3d/engine/loader.h>
+#include <soft3d/backend/rtcpu/renderer.h>
+#include <soft3d/backend/zcpu/renderer.h>
+#include <soft3d/common/curve.h>
+#include <soft3d/common/image.h>
+#include <soft3d/common/scene.h>
+#include <soft3d/common/transform.h>
+#include <soft3d/engine/engine.h>
+#include <soft3d/engine/loader.h>
 
 #include <chrono>
 #include <thread>
@@ -241,7 +241,7 @@ int runDemo2D(Demo2D* demo) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 
-    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "nuguri3d Demo", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "soft3d Demo", NULL, NULL);
     if (!window) {
         return 1;
     }

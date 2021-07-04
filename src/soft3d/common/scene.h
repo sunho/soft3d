@@ -1,10 +1,10 @@
 #pragma once
-#include <nuguri3d/common/curve.h>
-#include <nuguri3d/common/geom.h>
-#include <nuguri3d/common/image.h>
-#include <nuguri3d/common/linalg.h>
-#include <nuguri3d/common/texture.h>
-#include <nuguri3d/common/transform.h>
+#include <soft3d/common/curve.h>
+#include <soft3d/common/geom.h>
+#include <soft3d/common/image.h>
+#include <soft3d/common/linalg.h>
+#include <soft3d/common/texture.h>
+#include <soft3d/common/transform.h>
 
 #include <list>
 #include <map>

@@ -23,15 +23,8 @@ set(SOURCE_LIST
 )
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SOURCE_LIST})
-add_library(nuguri3d ${SOURCE_LIST})
-target_link_libraries(nuguri3d PRIVATE glfw glad stb_image)
-target_include_directories(nuguri3d PUBLIC .. ${CMAKE_CURRENT_BINARY_DIR}/..)
-
-add_executable(
-	linalg-test
-	tests/linalg_test.cpp
-)
-target_link_libraries(linalg-test PRIVATE googletest focg)
-add_test(NAME nuguri3d COMMAND linalg-test)
+add_library(soft3d ${SOURCE_LIST})
+target_link_libraries(soft3d PRIVATE glfw glad stb_image)
+target_include_directories(soft3d PUBLIC .. ${CMAKE_CURRENT_BINARY_DIR}/..)
 
 create_resources(${CMAKE_CURRENT_SOURCE_DIR}/backend/rtgl/shaders ${CMAKE_CURRENT_BINARY_DIR}/backend/rtgl/shaders.h)

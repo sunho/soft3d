@@ -1,8 +1,8 @@
 #pragma once
 
-#include <nuguri3d/backend/interface.h>
-#include <nuguri3d/common/scene.h>
-#include <nuguri3d/common/threadpool.h>
+#include <soft3d/backend/interface.h>
+#include <soft3d/common/scene.h>
+#include <soft3d/common/threadpool.h>
 
 struct Shader {
     std::function<Vector3(const Vector3& bary, const Vector3& homo, const Geometry& geom,

@@ -1,7 +1,7 @@
 #pragma once
 
-#include <nuguri3d/backend/interface.h>
-#include <nuguri3d/common/filter.h>
+#include <soft3d/backend/interface.h>
+#include <soft3d/common/filter.h>
 
 #include <chrono>
 #include <optional>

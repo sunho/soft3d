@@ -1,7 +1,7 @@
 #pragma once
-#include <nuguri3d/common/image.h>
-#include <nuguri3d/common/linalg.h>
-#include <nuguri3d/common/util.h>
+#include <soft3d/common/image.h>
+#include <soft3d/common/linalg.h>
+#include <soft3d/common/util.h>
 
 #include <cmath>
 

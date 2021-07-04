@@ -1,4 +1,4 @@
-#include <nuguri3d/backend/zcpu/renderer.h>
+#include <soft3d/backend/zcpu/renderer.h>
 
 constexpr int THREAD_NUM = 8;
 constexpr int MAX_JOB = 2000 * 2000;

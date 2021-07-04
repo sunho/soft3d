@@ -1,5 +1,5 @@
 #pragma once
-#include <nuguri3d/common/linalg.h>
+#include <soft3d/common/linalg.h>
 
 inline Float deg2rad(Float angle) {
     return angle * PI / 180.0;

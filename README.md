@@ -1,6 +1,6 @@
-# nuguri3d
+# soft3d
 
-3D renderer supporting both software and accelerated raytracer/rasterizer
+3D renderer on cpu supporting raytracer/rasterizer
 
 ## Features
 
