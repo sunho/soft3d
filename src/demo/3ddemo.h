@@ -29,6 +29,8 @@ struct ObjLoad : public App {
     void init(Engine& engine, Scene& scene) override {
         Image base = loadTexture("base.png");
         TextureId baseId = scene.textures.move(std::move(base));
+        Image normal = loadTexture("normal.png");
+        TextureId normalId = scene.textures.move(std::move(normal));
         model = loadObj("model.obj");
         Basis basis;
         basis.u = Vector3(1.0, 0.0, 0.0);
@@ -71,6 +73,7 @@ struct ObjLoad : public App {
             auto tt = Triangle({ tri.a, tri.nA, tri.tA }, { tri.b, tri.nB, tri.tB },
                                { tri.c, tri.nC, tri.tC }, shade1);
             tt.texture = baseId;
+            tt.normalMap = normalId;
             scene.geoms.push_back(tt);
         }
     }

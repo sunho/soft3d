@@ -152,10 +152,12 @@ Vector3 ZCPURenderer::shadeSingleShadedTriangle(const Vector3& bary, const Plain
 }
 
 Vector3 ZCPURenderer::shadeTriangle(const Vector3& bary, const Triangle& tri, const Vector3& homo) {
+    Float w = 1.0f;
     Vector3 pixel = scene.lightSystem.ambientIntensity * tri.shade.ambient;
+    Vector3 normal = tri.vA.normal * bary.x() + tri.vB.normal * bary.y() + tri.vC.normal * bary.z();
+
     Vector3 hit = tri.vA.pos * bary.x() + tri.vB.pos * bary.y() + tri.vC.pos * bary.z();
     Vector3 e = (scene.camera.e - hit).normalized();
-    Vector3 normal = tri.vA.normal * bary.x() + tri.vB.normal * bary.y() + tri.vC.normal * bary.z();
     Vector3 diffuse;
     if (tri.texture) {
         // Perspective correction
@@ -163,12 +165,30 @@ Vector3 ZCPURenderer::shadeTriangle(const Vector3& bary, const Triangle& tri, co
                      tri.vC.tex * bary.z() / homo.z();
         uv /= (bary.x() * (1 / homo.x()) + bary.y() * (1 / homo.y()) + bary.z() * (1 / homo.z()));
         diffuse = sampleBilinear(*scene.textures.get(tri.texture), uv);
+
+        Vector3 deltaPos1 = tri.vB.pos - tri.vA.pos;
+        Vector3 deltaPos2 = tri.vC.pos - tri.vA.pos;
+
+        Vector2 deltaUV1 = tri.vB.tex - tri.vA.tex;
+        Vector2 deltaUV2 = tri.vC.tex - tri.vA.tex;
+
+        float r = 1.0f / (deltaUV1.x() * deltaUV2.y() - deltaUV1.y() * deltaUV2.x());
+        Vector3 tangent = (deltaPos1 * deltaUV2.y() - deltaPos2 * deltaUV1.y()) * r;
+        tangent.normalize();
+        Vector3 bitangent = (deltaPos2 * deltaUV1.x() - deltaPos1 * deltaUV2.x()) * r;
+        bitangent.normalize();
+
+        Matrix tbn = Matrix(3, 3,
+                            { tangent[0], bitangent[0], normal[0], tangent[1], bitangent[1],
+                              normal[1], tangent[2], bitangent[2], normal[2] });
+        Vector3 nn = sampleBilinear(*scene.textures.get(tri.normalMap), uv);
+        nn = nn * 2.0f - Vector3(1.0f, 1.0f, 1.0f);
+        normal = tbn.mul<Vector3>(nn);
     } else {
         diffuse = tri.shade.diffuse;
     }
     for (auto& [lid, l] : scene.lightSystem.lights) {
         if (auto light = std::get_if<DirectionalLight>(&l)) {
-            Float w = 1.0f;
             Vector3 shadowVec = hit.transformed(lightMvp.at(lid), w);
             Float dd = 1.0f + (shadowVec.z() - 2.0f) / 6.0f;
             Image* shadowMap = scene.textures.get(shadowMaps.at(lid));

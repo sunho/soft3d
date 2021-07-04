@@ -69,6 +69,7 @@ struct Triangle {
     Triangle3 curve;
     Shade shade;
     TextureId texture{ 0 };
+    TextureId normalMap{ 0 };
 
     Triangle() = default;
     explicit Triangle(TriangleVertex a, TriangleVertex b, TriangleVertex c, Shade shade)
