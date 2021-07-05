@@ -91,25 +91,19 @@ Vector3 RTCPURenderer::shadePlain(Ray ray, RayHit hit, const Shade& shade, int d
 }
 
 bool RTCPURenderer::testRay(Ray ray, Float t0, Float t1, RayHit& hit) {
-    bool out = false;
-    for (auto& geom : scene.geoms) {
-        bool tmp = false;
-        if (auto sphere = std::get_if<PlainSphere>(&geom)) {
-            tmp = testSphereRay(sphere->center, sphere->radius, ray, t0, t1, hit);
-        } else if (auto triangle = std::get_if<PlainTriangle>(&geom)) {
-            tmp = testTriangleRay(triangle->curve, ray, t0, t1, hit);
-        } else if (auto sphere = std::get_if<Sphere>(&geom)) {
-            tmp = testSphereRay(sphere->center, sphere->radius, ray, t0, t1, hit);
-        } else if (auto triangle = std::get_if<Triangle>(&geom)) {
-            tmp = testTriangleRay(triangle->curve, ray, t0, t1, hit);
+    const auto testGeomFunc = [&](const Geometry* geom, Ray ray, Float t0, Float t1, RayHit& hit) {
+        hit.geom = geom;
+        if (auto sphere = std::get_if<PlainSphere>(geom)) {
+            return testSphereRay(sphere->center, sphere->radius, ray, t0, t1, hit);
+        } else if (auto triangle = std::get_if<PlainTriangle>(geom)) {
+            return testTriangleRay(triangle->curve, ray, t0, t1, hit);
+        } else if (auto sphere = std::get_if<Sphere>(geom)) {
+            return testSphereRay(sphere->center, sphere->radius, ray, t0, t1, hit);
+        } else if (auto triangle = std::get_if<Triangle>(geom)) {
+            return testTriangleRay(triangle->curve, ray, t0, t1, hit);
         }
-        out |= tmp;
-        if (tmp) {
-            hit.geom = &geom;
-            t1 = hit.time;
-        }
-    }
-    return out;
+    };
+    return scene.geoms.testRay(ray, t0, t1, hit, testGeomFunc);
 }
 
 // p(t) = e + t d

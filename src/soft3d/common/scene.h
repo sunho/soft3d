@@ -1,4 +1,5 @@
 #pragma once
+#include <soft3d/common/bvhtree.h>
 #include <soft3d/common/curve.h>
 #include <soft3d/common/geom.h>
 #include <soft3d/common/image.h>
@@ -121,11 +122,6 @@ struct IdResourceManager {
     std::set<int> registered;
 };
 
-struct Ray {
-    Vector3 origin;
-    Vector3 dir;
-};
-
 struct Camera {
     Vector3 e;
     Basis basis;
@@ -164,11 +160,14 @@ struct LightSystem {
     IdResourceManager<Light> lights;
 };
 
-struct Scene {
-    Scene() = default;
+template <typename GeomTree>
+struct GScene {
+    GScene() = default;
 
     IdResourceManager<Image> textures;
-    std::vector<Geometry> geoms;
+    GeomTree geoms;
     Camera camera;
     LightSystem lightSystem;
 };
+
+using Scene = GScene<BvhTree>;

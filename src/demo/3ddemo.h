@@ -16,7 +16,7 @@ static EngineConfig engineConf = { .width = 500,
                                    /*  .aaProfile = AAProfile {
                                          .filter = boxFilter1(1),
                                      },*/
-                                   .renderer = Backend::ZCPU };
+                                   .renderer = Backend::RTCPU };
 
 struct ObjLoad : public App {
     Model model;
@@ -63,17 +63,17 @@ struct ObjLoad : public App {
                             .phong = 100.0 };
 
         Float sz = -0.3;
-        scene.geoms.push_back(PlainTriangle(Vector3(-1.0, 2.0, sz), Vector3(-1.0, -1.0, sz),
-                                            Vector3(2.0, 2.0, sz), shadewall));
-        scene.geoms.push_back(PlainTriangle(Vector3(-1.0, -1.0, sz), Vector3(1.0, -2.0, sz),
-                                            Vector3(2.0, 2.0, sz), shadewall));
+        scene.geoms.add(PlainTriangle(Vector3(-1.0, 2.0, sz), Vector3(-1.0, -1.0, sz),
+                                      Vector3(2.0, 2.0, sz), shadewall));
+        scene.geoms.add(PlainTriangle(Vector3(-1.0, -1.0, sz), Vector3(1.0, -2.0, sz),
+                                      Vector3(2.0, 2.0, sz), shadewall));
 
         for (auto tri : model.meshes[0].data) {
             auto tt = Triangle({ tri.a, tri.nA, tri.tA }, { tri.b, tri.nB, tri.tB },
                                { tri.c, tri.nC, tri.tC }, shade1);
             tt.texture = baseId;
             tt.normalMap = normalId;
-            scene.geoms.push_back(tt);
+            scene.geoms.add(tt);
         }
     }
 
@@ -120,15 +120,15 @@ struct SphereRayTrace : public App {
         TextureId texId = scene.textures.move(std::move(tex));
 
         // scene.geoms.push_back(PlainSphere(Vector3(-0.2, 0.0, 0.0), 0.25, shade1));
-        scene.geoms.push_back(Sphere(Vector3(0.3, 0.0, -0.4), 0.25, shade1, texId));
+        scene.geoms.add(Sphere(Vector3(0.3, 0.0, -0.4), 0.25, shade1, texId));
         /*scene.geoms.push_back(Triangle(Vector3(-1.0, 1.0, -0.4), Vector3(-1.0, -1.0, -0.7),
                                        Vector3(2.0, 1.0, -0.3), shadetri));
          */
-        scene.geoms.push_back(PlainTriangle(Vector3(-2.0, 0.0, -1.0), Vector3(2.0, -1.0, 1.0),
-                                            Vector3(2.0, 0.0, -1.0), shadewall));
-        scene.geoms.push_back(PlainTriangle(Vector3(-2.0, 0.0, -1.0), Vector3(-2.0, -1.0, 1.0),
-                                            Vector3(2.0, -1.0, 1.0), shadewall));
-        scene.geoms.push_back(Sphere(Vector3(-0.2, -0.1, 0), 0.25, shade1, texId));
+        scene.geoms.add(PlainTriangle(Vector3(-2.0, 0.0, -1.0), Vector3(2.0, -1.0, 1.0),
+                                      Vector3(2.0, 0.0, -1.0), shadewall));
+        scene.geoms.add(PlainTriangle(Vector3(-2.0, 0.0, -1.0), Vector3(-2.0, -1.0, 1.0),
+                                      Vector3(2.0, -1.0, 1.0), shadewall));
+        scene.geoms.add(Sphere(Vector3(-0.2, -0.1, 0), 0.25, shade1, texId));
 
         // sp.transform = toHomo(scale3(1.0, 0.5, 1.0));
         // sp.itransform = *invertMatrix4x4(sp.transform);

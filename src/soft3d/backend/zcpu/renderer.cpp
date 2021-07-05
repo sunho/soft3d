@@ -39,7 +39,7 @@ void ZCPURenderer::renderInternal(Image& screen, const Matrix& mvp, Shader& shad
     zBuffer.resize(screen.getWidth() * screen.getHeight());
     std::fill(zBuffer.begin(), zBuffer.end(), -1.0 / 0.0);
     width = screen.getWidth();
-    for (auto& geom : scene.geoms) {
+    for (auto& [_, geom] : scene.geoms) {
         bool tmp = false;
         if (auto sphere = std::get_if<PlainSphere>(&geom)) {
             // todo

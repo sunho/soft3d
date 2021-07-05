@@ -4,13 +4,6 @@
 #include <soft3d/common/scene.h>
 #include <soft3d/common/threadpool.h>
 
-struct RayHit {
-    Vector3 normal;
-    Vector3 pos;
-    Float time;
-    const Geometry* geom;
-};
-
 struct RTCPURenderer : public Renderer {
     RTCPURenderer();
     ~RTCPURenderer();

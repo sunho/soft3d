@@ -1,4 +1,6 @@
 set(SOURCE_LIST
+    common/bvhtree.h
+    common/bsptree.h
     common/linalg.h
     common/geom.h
     common/curve.h
