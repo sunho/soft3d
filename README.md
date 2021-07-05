@@ -4,7 +4,7 @@
 
 ## Features
 
-These features are all built from scrath by referring to theoretical resources (primarily fundamental of copmuter graphics)
+These features are all built from scrath by referring to fundamental of copmuter graphics
 
 - Phong shading
 - Antialiased texture sampling (spherial/vertex uv)
