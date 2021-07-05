@@ -134,7 +134,7 @@ struct Triangle3 {
     explicit Triangle3(Vector3 a, Vector3 b, Vector3 c) : pA(a), pB(b), pC(c) {
         Vector3 ab = pB - pA;
         Vector3 ac = pC - pA;
-        n = ab.cross(ac).normalized();
+        n = ab.cross(ac);
         cA = pC - pB;
         cB = pA - pC;
         cC = pB - pA;

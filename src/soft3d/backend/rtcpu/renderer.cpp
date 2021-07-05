@@ -50,6 +50,15 @@ Vector3 RTCPURenderer::rayColor(Ray ray, Float t0, Float t1, int depth) {
             shade.diffuse = color;
             shade.ambient = color;
             pixel = shadePlain(ray, hit, shade, depth);
+        } else if (auto triangle = std::get_if<Triangle>(hit.geom)) {
+            Shade shade = triangle->shade;
+            Vector3 bary = triangle->curve(hit.pos);
+            Vector2 uv = triangle->vA.tex * bary.x() + triangle->vB.tex * bary.y() +
+                         triangle->vC.tex * bary.z();
+            Vector3 color = samplePoint(*scene.textures.get(triangle->texture), uv);
+            shade.diffuse = color;
+            shade.ambient = color;
+            pixel = shadePlain(ray, hit, shade, depth);
         }
         return pixel;
     } else {
@@ -74,8 +83,10 @@ Vector3 RTCPURenderer::shadePlain(Ray ray, RayHit hit, const Shade& shade, int d
         }
     }
 
-    Vector3 dir = ray.dir - 2 * (ray.dir.dot(hit.normal)) * hit.normal;
-    pixel += shade.reflect * rayColor(Ray{ hit.pos, dir }, 0.0001f, 1.0f / 0.0f, depth + 1);
+    if (fabs(shade.reflect.norm()) > 0.001) {
+        Vector3 dir = ray.dir - 2 * (ray.dir.dot(hit.normal)) * hit.normal;
+        pixel += shade.reflect * rayColor(Ray{ hit.pos, dir }, 0.0001f, 1.0f / 0.0f, depth + 1);
+    }
     return pixel;
 }
 
@@ -86,9 +97,11 @@ bool RTCPURenderer::testRay(Ray ray, Float t0, Float t1, RayHit& hit) {
         if (auto sphere = std::get_if<PlainSphere>(&geom)) {
             tmp = testSphereRay(sphere->center, sphere->radius, ray, t0, t1, hit);
         } else if (auto triangle = std::get_if<PlainTriangle>(&geom)) {
-            tmp = testTriangleRay(*triangle, ray, t0, t1, hit);
+            tmp = testTriangleRay(triangle->curve, ray, t0, t1, hit);
         } else if (auto sphere = std::get_if<Sphere>(&geom)) {
             tmp = testSphereRay(sphere->center, sphere->radius, ray, t0, t1, hit);
+        } else if (auto triangle = std::get_if<Triangle>(&geom)) {
+            tmp = testTriangleRay(triangle->curve, ray, t0, t1, hit);
         }
         out |= tmp;
         if (tmp) {
@@ -162,11 +175,11 @@ bool RTCPURenderer::testSphereRay(const Vector3& e, Float radius, Ray ray, Float
 // c = i(ak-jb)+h(jc-al)+g(bl-kc) / M
 // t = -(f(ak-jb)+e(jc-al)+d(bl-kc) / M)
 // M = a(ei-hf) + b(gf-di) + c(dh-eg)
-bool RTCPURenderer::testTriangleRay(const PlainTriangle& triangle, Ray ray, Float t0, Float t1,
+bool RTCPURenderer::testTriangleRay(const Triangle3& triangle, Ray ray, Float t0, Float t1,
                                     RayHit& hit) {
-    Vector3 vA = triangle.vA;
-    Vector3 vB = triangle.vB;
-    Vector3 vC = triangle.vC;
+    Vector3 vA = triangle.pA;
+    Vector3 vB = triangle.pB;
+    Vector3 vC = triangle.pC;
     Float a = vA.x() - vB.x();
     Float b = vA.y() - vB.y();
     Float c = vA.z() - vB.z();

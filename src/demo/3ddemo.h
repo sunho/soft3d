@@ -38,17 +38,17 @@ struct ObjLoad : public App {
         basis.w = Vector3(0.0, 0.0, 1.0);
         scene.camera = Camera(Vector3(0.0, 0.0, 1.5), basis, 1.0);
         LightSystem lightSystem{};
-        lightSystem.ambientIntensity = 0.1;
+        lightSystem.ambientIntensity = 0.3;
         lightSystem.lights.move(
             std::move(DirectionalLight{ 1.2, Vector3(-0.5, 0.5, 0.5).normalized() }));
         lightSystem.lights.move(
-            std::move(DirectionalLight{ 0.3, Vector3(-0.8, -1.0, 0.5).normalized() }));
+            std::move(DirectionalLight{ 0.6, Vector3(-0.8, -1.0, 0.5).normalized() }));
         scene.lightSystem = lightSystem;
 
         Shade shade1 = { .diffuse = Vector3(0.5, 1.0, 0.5),
                          .ambient = Vector3(0.5, 1.0, 0.5),
                          .specular = Vector3(0.3, 0.3, 0.3),
-                         .reflect = Vector3(0.2, 0.2, 0.2),
+                         .reflect = Vector3(0.0, 0.0, 0.0),
                          .phong = 100.0 };
 
         Shade shade2 = { .diffuse = Vector3(0.5, 0.5, 1.0),
@@ -56,18 +56,17 @@ struct ObjLoad : public App {
                          .specular = Vector3(0.3, 0.3, 0.3),
                          .reflect = Vector3(0.2, 0.2, 0.2),
                          .phong = 100.0 };
-        Shade shadewall = { .diffuse = Vector3(0.7, 0.7, 0.7),
-                            .ambient = Vector3(0.7, 0.7, 0.7),
+        Shade shadewall = { .diffuse = Vector3(0.4, 0.4, 0.4),
+                            .ambient = Vector3(0.8, 0.8, 0.8),
                             .specular = Vector3(0.3, 0.3, 0.3),
                             .reflect = Vector3(0.2, 0.2, 0.2),
                             .phong = 100.0 };
 
         Float sz = -0.3;
-        scene.geoms.push_back(PlainTriangle(Vector3(-2.0, 0.3, -1.0), Vector3(2.0, -1.0, 1.0),
-                                            Vector3(2.0, 0.3, -1.0), shadewall));
-        scene.geoms.push_back(PlainTriangle(Vector3(-2.0, 0.3, -1.0), Vector3(-2.0, -1.0, 1.0),
-                                            Vector3(2.0, -1.0, 1.0), shadewall));
-        scene.geoms.push_back(PlainSphere(Vector3(0.0, 0.0, -0.15), 0.10, shade2));
+        scene.geoms.push_back(PlainTriangle(Vector3(-1.0, 2.0, sz), Vector3(-1.0, -1.0, sz),
+                                            Vector3(2.0, 2.0, sz), shadewall));
+        scene.geoms.push_back(PlainTriangle(Vector3(-1.0, -1.0, sz), Vector3(1.0, -2.0, sz),
+                                            Vector3(2.0, 2.0, sz), shadewall));
 
         for (auto tri : model.meshes[0].data) {
             auto tt = Triangle({ tri.a, tri.nA, tri.tA }, { tri.b, tri.nB, tri.tB },

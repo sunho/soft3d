@@ -55,6 +55,10 @@ void ZCPURenderer::renderInternal(Image& screen, const Matrix& mvp, Shader& shad
     }
 }
 
+constexpr Float far = -1.0;
+
+constexpr Float near = 1.0;
+
 void ZCPURenderer::bakeShadowMap(Image& screen) {
     for (auto lid : scene.lightSystem.lights.ids()) {
         Light* l = scene.lightSystem.lights.get(lid);
@@ -65,14 +69,14 @@ void ZCPURenderer::bakeShadowMap(Image& screen) {
             basis.u = Vector3(0, 0, 1).cross(basis.w).normalized();
             basis.v = basis.w.cross(basis.u);
             Matrix mvp = viewportMatrix(1000, 1000) *
-                         orthProjectionMatrix(-2.0, 2.0, -2.0, 2.0, 2.0, -4.0) *
+                         orthProjectionMatrix(-2.0, 2.0, -2.0, 2.0, near, far) *
                          viewMatrix(basis, Vector3(0, 0, 0));
             lightMvp.emplace(lid, mvp);
             shadowMaps.emplace(lid, texId);
             Shader shadowPass;
             shadowPass.func = [&](const Vector3& bary, const Vector3& homo, const Geometry& geom,
                                   Float depth) {
-                return Vector3(0.0f, 0.0f, 1.0f + (depth - 2.0f) / 6.0f);
+                return Vector3(0.0f, 0.0f, -(depth - near) / (near - far));
             };
             renderInternal(*scene.textures.get(texId), mvp, shadowPass);
         }
@@ -130,22 +134,23 @@ void ZCPURenderer::drawTriangle(Image& screen, const Triangle3& triangle, const 
 
 Vector3 ZCPURenderer::shadeSingleShadedTriangle(const Vector3& bary, const PlainTriangle& tri) {
     Vector3 pixel = scene.lightSystem.ambientIntensity * tri.shade.ambient;
-    Vector3 normal = tri.normal(Vector3());
+    Vector3 normal = tri.normal(Vector3()).normalized();
     Vector3 hit = tri.vA * bary.x() + tri.vB * bary.y() + tri.vC * bary.z();
 
     for (auto& [lid, l] : scene.lightSystem.lights) {
         if (auto light = std::get_if<DirectionalLight>(&l)) {
             Float w = 1.0f;
             Vector3 shadowVec = hit.transformed(lightMvp.at(lid), w);
-            Float dd = 1.0f + (shadowVec.z() - 2.0f) / 6.0f;
+            Float dd = -(shadowVec.z() - near) / (near - far);
 
             Image* shadowMap = scene.textures.get(shadowMaps.at(lid));
             Float d = shadowMap->getPixel(shadowVec.x(), shadowVec.y()).z();
-            if (fabs(d - dd) < 0.002) {
+            if (fabs(d - dd) < 0.01) {
                 Float x = std::max(0.0f, light->v.dot(normal));
                 // Float x2 = std::max(0.0, h.dot(hit.normal));
                 pixel += light->intensity * (x * tri.shade.diffuse);
             }
+            // pixel = Vector3(0,0,d);
         }
     }
     return pixel;
@@ -153,7 +158,6 @@ Vector3 ZCPURenderer::shadeSingleShadedTriangle(const Vector3& bary, const Plain
 
 Vector3 ZCPURenderer::shadeTriangle(const Vector3& bary, const Triangle& tri, const Vector3& homo) {
     Float w = 1.0f;
-    Vector3 pixel = scene.lightSystem.ambientIntensity * tri.shade.ambient;
     Vector3 normal = tri.vA.normal * bary.x() + tri.vB.normal * bary.y() + tri.vC.normal * bary.z();
 
     Vector3 hit = tri.vA.pos * bary.x() + tri.vB.pos * bary.y() + tri.vC.pos * bary.z();
@@ -166,6 +170,7 @@ Vector3 ZCPURenderer::shadeTriangle(const Vector3& bary, const Triangle& tri, co
         uv /= (bary.x() * (1 / homo.x()) + bary.y() * (1 / homo.y()) + bary.z() * (1 / homo.z()));
         diffuse = sampleBilinear(*scene.textures.get(tri.texture), uv);
 
+        // Normal mapping
         Vector3 deltaPos1 = tri.vB.pos - tri.vA.pos;
         Vector3 deltaPos2 = tri.vC.pos - tri.vA.pos;
 
@@ -187,13 +192,15 @@ Vector3 ZCPURenderer::shadeTriangle(const Vector3& bary, const Triangle& tri, co
     } else {
         diffuse = tri.shade.diffuse;
     }
+    Vector3 pixel = scene.lightSystem.ambientIntensity * diffuse;
+
     for (auto& [lid, l] : scene.lightSystem.lights) {
         if (auto light = std::get_if<DirectionalLight>(&l)) {
             Vector3 shadowVec = hit.transformed(lightMvp.at(lid), w);
-            Float dd = 1.0f + (shadowVec.z() - 2.0f) / 6.0f;
+            Float dd = -(shadowVec.z() - near) / (near - far);
             Image* shadowMap = scene.textures.get(shadowMaps.at(lid));
             Float d = shadowMap->getPixel(shadowVec.x(), shadowVec.y()).z();
-            if (fabs(d - dd) < 0.002) {
+            if (fabs(d - dd) < 0.01) {
                 Vector3 h = (e + light->v).normalized();
 
                 Float x = std::max(0.0f, light->v.dot(normal));
@@ -201,6 +208,7 @@ Vector3 ZCPURenderer::shadeTriangle(const Vector3& bary, const Triangle& tri, co
                 pixel += light->intensity *
                          (x * diffuse + pow(x2, tri.shade.phong) * tri.shade.specular);
             }
+            // pixel = Vector3(0,0,d);
         }
     }
     return pixel;

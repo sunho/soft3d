@@ -25,7 +25,7 @@ struct RTCPURenderer : public Renderer {
 
     bool testRay(Ray ray, Float t0, Float t1, RayHit& hit);
     bool testSphereRay(const Vector3& e, Float radius, Ray ray, Float t0, Float t1, RayHit& hit);
-    bool testTriangleRay(const PlainTriangle& triangle, Ray ray, Float t0, Float t1, RayHit& hit);
+    bool testTriangleRay(const Triangle3& triangle, Ray ray, Float t0, Float t1, RayHit& hit);
 
     ThreadPool<Vector2> threadPool;
 

@@ -53,3 +53,24 @@ static Vector3 sampleBilinear(Image& texture, const Vector2& uv) {
     out += bU * bV * texture.getPixel(iu1, iv1);
     return out;
 }
+
+static Vector3 stripeSimple(const Vector2& p, const Vector3& c0, const Vector3& c1) {
+    if (sin(p.x()) > 0) {
+        return c0;
+    } else {
+        return c1;
+    }
+}
+
+static Vector3 stripeSimple(const Vector2& p, const Vector3& c0, const Vector3& c1, Float w) {
+    if (sin(PI * p.x() / w) > 0) {
+        return c0;
+    } else {
+        return c1;
+    }
+}
+
+static Vector3 stripeInterpolated(const Vector2& p, const Vector3& c0, const Vector3& c1, Float w) {
+    Float t = (1 + sin(PI * p.x() / w)) / 2;
+    return (1 - t) * c0 + t * c1;
+}
