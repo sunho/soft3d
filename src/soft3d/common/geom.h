@@ -88,8 +88,10 @@ struct Triangle {
 using Geometry = std::variant<PlainSphere, PlainTriangle, Triangle, Sphere>;
 
 struct Ray {
+    Ray() = default;
     Vector3 origin;
     Vector3 dir;
+    bool isShadow{ false };
 };
 
 struct RayHit {

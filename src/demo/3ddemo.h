@@ -39,10 +39,11 @@ struct ObjLoad : public App {
         scene.camera = Camera(Vector3(0.0, 0.0, 1.5), basis, 1.0);
         LightSystem lightSystem{};
         lightSystem.ambientIntensity = 0.3;
-        lightSystem.lights.move(
-            std::move(DirectionalLight{ 1.2, Vector3(-0.5, 0.5, 0.5).normalized() }));
-        lightSystem.lights.move(
-            std::move(DirectionalLight{ 0.6, Vector3(-0.8, -1.0, 0.5).normalized() }));
+        /*lightSystem.lights.move(
+            std::move(DirectionalLight{ 1.2, Vector3(-0.5, 0.5, 0.5).normalized() }));*/
+        lightSystem.lights.move(std::move(AreaLight{
+            1.2, Vector3(-0.05, 0.35, 1.0), Vector3(0.0, 0.1, 0.0), Vector3(0.1, 0.0, 0.0) }));
+        lightSystem.lights.move(std::move(DirectionalLight{ 0.6, Vector3(0.0, 0.0, 1.0) }));
         scene.lightSystem = lightSystem;
 
         Shade shade1 = { .diffuse = Vector3(0.5, 1.0, 0.5),

@@ -41,6 +41,10 @@ inline Float clampToNormal(Float x) {
     return clamp(x, 0.0, 1.0);
 }
 
+static Float randUniform() {
+    return rand() / ((Float)(RAND_MAX) + 1.0f);
+}
+
 inline double clockToMs(clock_t ticks) {
     return (ticks / (double)CLOCKS_PER_SEC) * 1000.0;
 }

@@ -152,7 +152,19 @@ struct DirectionalLight {
     Vector3 v;
 };
 
-using Light = std::variant<DirectionalLight>;
+struct PointLight {
+    Float intensity;
+    Vector3 pos;
+};
+
+struct AreaLight {
+    Float intensity;
+    Vector3 pos;
+    Vector3 edge1;
+    Vector3 edge2;
+};
+
+using Light = std::variant<DirectionalLight, PointLight, AreaLight>;
 
 struct LightSystem {
     LightSystem() = default;
