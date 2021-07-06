@@ -48,6 +48,7 @@ struct Engine {
     Engine(EngineConfig conf);
 
     void run(App* app);
+    void render(App* app, std::string path);
     bool pressed(int keycode);
     double fps();
 

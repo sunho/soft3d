@@ -71,6 +71,7 @@ struct ThreadPool {
     ~ThreadPool() {
         auto lock = std::unique_lock(mutex);
         stop = true;
+        threadCond.notify_all();
         hostCond.wait(lock, [&]() { return this->living == 0; });
     }
 

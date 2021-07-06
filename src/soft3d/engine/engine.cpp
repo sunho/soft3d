@@ -8,6 +8,8 @@
 #include <soft3d/backend/rtcpu/renderer.h>
 #include <soft3d/backend/zcpu/renderer.h>
 
+#include <stb_image_write.h>
+
 #include <chrono>
 #include <thread>
 
@@ -100,6 +102,16 @@ void Engine::run(App* app) {
     window->runWindowLoop();
 }
 
+void Engine::render(App* app, std::string path) {
+    this->app = app;
+    app->init(*this, renderer->sceneRef());
+    screen = Image(conf.width, conf.height);
+    lastFrame = std::chrono::system_clock::now();
+    uint32_t* data = update();
+    stbi_flip_vertically_on_write(1);
+    stbi_write_png(path.c_str(), conf.width, conf.height, 4, data, conf.width * 4);
+}
+
 uint32_t* Engine::update() {
     const auto currentFrame = std::chrono::system_clock::now();
     const int dt =
@@ -123,11 +135,11 @@ uint32_t* Engine::update() {
     }
     lastFps[0] = fps;
 
-    /*if (fps > conf.fps) {
+    if (fps > conf.fps) {
         const double desiredMs = 1000.0 / conf.fps;
         std::this_thread::sleep_for(
             std::chrono::milliseconds(static_cast<int>(desiredMs - elapsedTime) + 1));
-    }*/
+    }
     window->setTitle(std::string("FOCG (frame time: ") + std::to_string((int)elapsedTime) +
                      "ms, fps: " + std::to_string((int)this->fps()) + ")");
 

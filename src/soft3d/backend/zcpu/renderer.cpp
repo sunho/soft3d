@@ -169,26 +169,26 @@ Vector3 ZCPURenderer::shadeTriangle(const Vector3& bary, const Triangle& tri, co
                      tri.vC.tex * bary.z() / homo.z();
         uv /= (bary.x() * (1 / homo.x()) + bary.y() * (1 / homo.y()) + bary.z() * (1 / homo.z()));
         diffuse = sampleBilinear(*scene.textures.get(tri.texture), uv);
+        /*
+                // Normal mapping
+                Vector3 deltaPos1 = tri.vB.pos - tri.vA.pos;
+                Vector3 deltaPos2 = tri.vC.pos - tri.vA.pos;
 
-        // Normal mapping
-        Vector3 deltaPos1 = tri.vB.pos - tri.vA.pos;
-        Vector3 deltaPos2 = tri.vC.pos - tri.vA.pos;
+                Vector2 deltaUV1 = tri.vB.tex - tri.vA.tex;
+                Vector2 deltaUV2 = tri.vC.tex - tri.vA.tex;
 
-        Vector2 deltaUV1 = tri.vB.tex - tri.vA.tex;
-        Vector2 deltaUV2 = tri.vC.tex - tri.vA.tex;
+                float r = 1.0f / (deltaUV1.x() * deltaUV2.y() - deltaUV1.y() * deltaUV2.x());
+                Vector3 tangent = (deltaPos1 * deltaUV2.y() - deltaPos2 * deltaUV1.y()) * r;
+                tangent.normalize();
+                Vector3 bitangent = (deltaPos2 * deltaUV1.x() - deltaPos1 * deltaUV2.x()) * r;
+                bitangent.normalize();
 
-        float r = 1.0f / (deltaUV1.x() * deltaUV2.y() - deltaUV1.y() * deltaUV2.x());
-        Vector3 tangent = (deltaPos1 * deltaUV2.y() - deltaPos2 * deltaUV1.y()) * r;
-        tangent.normalize();
-        Vector3 bitangent = (deltaPos2 * deltaUV1.x() - deltaPos1 * deltaUV2.x()) * r;
-        bitangent.normalize();
-
-        Matrix tbn = Matrix(3, 3,
-                            { tangent[0], bitangent[0], normal[0], tangent[1], bitangent[1],
-                              normal[1], tangent[2], bitangent[2], normal[2] });
-        Vector3 nn = sampleBilinear(*scene.textures.get(tri.normalMap), uv);
-        nn = nn * 2.0f - Vector3(1.0f, 1.0f, 1.0f);
-        normal = tbn.mul<Vector3>(nn);
+                Matrix tbn = Matrix(3, 3,
+                                    { tangent[0], bitangent[0], normal[0], tangent[1], bitangent[1],
+                                      normal[1], tangent[2], bitangent[2], normal[2] });
+                Vector3 nn = sampleBilinear(*scene.textures.get(tri.normalMap), uv);
+                nn = nn * 2.0f - Vector3(1.0f, 1.0f, 1.0f);
+                normal = tbn.mul<Vector3>(nn);*/
     } else {
         diffuse = tri.shade.diffuse;
     }

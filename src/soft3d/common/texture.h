@@ -22,8 +22,7 @@ static Vector2 convertSphereTexcoord(const Vector3& pos) {
 static Vector3 samplePoint(Image& texture, const Vector2& uv) {
     int i = round(uv.x() * texture.getWidth() - 0.5f);
     int j = round(uv.y() * texture.getWidth() - 0.5f);
-    return texture.getPixel(std::max(0, std::min(i, texture.getWidth() - 1)),
-                            std::max(0, std::min(j, texture.getHeight() - 1)));
+    return texture.getPixelWrap(i, j);
 }
 
 // Analogoues to image resampling
@@ -47,10 +46,10 @@ static Vector3 sampleBilinear(Image& texture, const Vector2& uv) {
     Float aV = (iv1 - vP);
     Float bV = (1.0f - aV);
     Vector3 out;
-    out += aU * aV * texture.getPixel(iu0, iv0);
-    out += aU * bV * texture.getPixel(iu0, iv1);
-    out += bU * aV * texture.getPixel(iu1, iv0);
-    out += bU * bV * texture.getPixel(iu1, iv1);
+    out += aU * aV * texture.getPixelWrap(iu0, iv0);
+    out += aU * bV * texture.getPixelWrap(iu0, iv1);
+    out += bU * aV * texture.getPixelWrap(iu1, iv0);
+    out += bU * bV * texture.getPixelWrap(iu1, iv1);
     return out;
 }
 

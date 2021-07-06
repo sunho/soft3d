@@ -31,13 +31,16 @@ Model loadObj(std::string path) {
                                                    normals[i], normals[i + 1], normals[i + 2] });
             }
         }
+        vertices.clear();
+        normals.clear();
+        texs.clear();
     };
     bool process = false;
     while (getline(input, line)) {
         auto pos = line.find(" ");
         if (pos != std::string::npos) {
             std::string command = line.substr(0, pos);
-            if (command == "o") {
+            if (command == "o" || line.rfind("# object", 0) == 0) {
                 flush();
             } else if (command == "v") {
                 double a, b, c;

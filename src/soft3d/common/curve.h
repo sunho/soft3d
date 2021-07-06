@@ -167,7 +167,16 @@ struct Triangle3 {
         Float a = n.dot(nA) / n2;
         Float b = n.dot(nB) / n2;
         Float c = n.dot(nC) / n2;
+        a = clampToNormal(a);
+        b = clampToNormal(b);
+        c = clampToNormal(c);
         return Vector3(a, b, c);
+    }
+
+    bool sameFace(const Vector3& v) const {
+        Vector3 ab = pB - pA;
+        Vector3 ac = pC - pA;
+        return v.dot(ab.cross(ac)) >= 0.0f;
     }
 
     Triangle3 transformed(const Matrix& mat, Vector3& homo) const {

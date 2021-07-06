@@ -17,6 +17,12 @@ struct Image {
         return buffer[y * width + x];
     }
 
+    inline Vector3 getPixelWrap(int x, int y) {
+        x %= width;
+        y %= height;
+        return getPixel(x, y);
+    }
+
     inline void setPixel(int x, int y, const Vector3& rgb) {
         if (x < 0 || x >= width || y < 0 || y >= height)
             return;

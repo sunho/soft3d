@@ -3,7 +3,7 @@
 constexpr int THREAD_NUM = 8;
 constexpr int MAX_JOB = 2000 * 2000;
 constexpr int SAMPLE_N = 3;
-constexpr bool AAON = true;
+constexpr bool AAON = false;
 
 RTCPURenderer::RTCPURenderer() : threadPool(THREAD_NUM, MAX_JOB) {
 }
@@ -46,7 +46,7 @@ void RTCPURenderer::renderPixel(const Vector2& pos, Image& screen) {
 
 Vector3 RTCPURenderer::rayColor(Ray ray, Float t0, Float t1, const std::vector<Vector2>& jittered,
                                 int depth) {
-    if (depth == 40) {
+    if (depth == 20) {
         return Vector3(0, 0, 0);
     }
     RayHit hit;
@@ -67,12 +67,21 @@ Vector3 RTCPURenderer::rayColor(Ray ray, Float t0, Float t1, const std::vector<V
             pixel = shadePlain(ray, hit, shade, jittered, depth);
         } else if (auto triangle = std::get_if<Triangle>(hit.geom)) {
             Shade shade = triangle->shade;
+            Triangle3 tri3 = triangle->curve;
             Vector3 bary = triangle->curve(hit.pos);
             Vector2 uv = triangle->vA.tex * bary.x() + triangle->vB.tex * bary.y() +
                          triangle->vC.tex * bary.z();
-            Vector3 color = samplePoint(*scene.textures.get(triangle->texture), uv);
-            shade.diffuse = color;
-            shade.ambient = color;
+            if (triangle->texture) {
+                Vector3 color = sampleBilinear(*scene.textures.get(triangle->texture), uv);
+                shade.diffuse = color;
+                shade.ambient = color;
+            }
+            hit.normal = triangle->vA.normal * bary.x() + triangle->vB.normal * bary.y() +
+                         triangle->vC.normal * bary.z();
+            if (triangle->curve.sameFace(ray.dir)) {
+                hit.normal *= -1;
+            }
+
             pixel = shadePlain(ray, hit, shade, jittered, depth);
         }
         return pixel;
@@ -201,9 +210,9 @@ Vector3 RTCPURenderer::shadeDielectric(Ray ray, RayHit hit, const Shade& shade,
         c = -ray.dir.dot(hit.normal);
         k = Vector3(1.0, 1.0, 1.0);
     } else {
-        Float kx = exp(-shade.refractReflectance.x() * hit.time * 10.0);
-        Float ky = exp(-shade.refractReflectance.y() * hit.time * 10.0);
-        Float kz = exp(-shade.refractReflectance.z() * hit.time * 10.0);
+        Float kx = exp(-shade.refractReflectance.x() * hit.time);
+        Float ky = exp(-shade.refractReflectance.y() * hit.time);
+        Float kz = exp(-shade.refractReflectance.z() * hit.time);
         k = Vector3(kx, ky, kz);
         if (refractRay(ray, -1 * hit.normal, 1 / shade.refractIndex, t)) {
             c = t.dot(hit.normal);
