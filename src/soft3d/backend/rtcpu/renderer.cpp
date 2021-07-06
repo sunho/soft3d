@@ -31,7 +31,7 @@ void RTCPURenderer::renderPixel(const Vector2& pos, Image& screen) {
 }
 
 Vector3 RTCPURenderer::rayColor(Ray ray, Float t0, Float t1, int depth) {
-    if (depth == 10) {
+    if (depth == 40) {
         return Vector3(0, 0, 0);
     }
     RayHit hit;
@@ -67,27 +67,122 @@ Vector3 RTCPURenderer::rayColor(Ray ray, Float t0, Float t1, int depth) {
 }
 
 Vector3 RTCPURenderer::shadePlain(Ray ray, RayHit hit, const Shade& shade, int depth) {
-    Vector3 pixel = scene.lightSystem.ambientIntensity * shade.ambient;
-    RayHit hit2;
-    for (auto& [_, l] : scene.lightSystem.lights) {
-        if (auto light = std::get_if<DirectionalLight>(&l)) {
-            if (!testRay(Ray{ hit.pos, light->v }, 0.0001f, 1.0f / 0.0f, hit2)) {
-                Vector3 h = -1 * ray.dir.normalized() + light->v;
-                h.normalize();
+    if (!nearE(shade.refractIndex, 1.0f)) {
+        return shadeDielectric(ray, hit, shade, depth);
+    } else {
+        Vector3 pixel = scene.lightSystem.ambientIntensity * shade.ambient;
+        RayHit hit2;
+        for (auto& [_, l] : scene.lightSystem.lights) {
+            if (auto light = std::get_if<DirectionalLight>(&l)) {
+                if (!testRay(Ray{ hit.pos, light->v }, 0.0001f, 1.0f / 0.0f, hit2)) {
+                    Vector3 h = -1 * ray.dir.normalized() + light->v;
+                    h.normalize();
 
-                Float x = std::max(0.0f, light->v.dot(hit.normal));
-                Float x2 = std::max(0.0f, h.dot(hit.normal));
-                pixel +=
-                    light->intensity * (x * shade.diffuse + pow(x2, shade.phong) * shade.specular);
+                    Float x = std::max(0.0f, light->v.dot(hit.normal));
+                    Float x2 = std::max(0.0f, h.dot(hit.normal));
+                    pixel += light->intensity *
+                             (x * shade.diffuse + pow(x2, shade.phong) * shade.specular);
+                }
             }
         }
-    }
 
-    if (fabs(shade.reflect.norm()) > 0.001) {
-        Vector3 dir = ray.dir - 2 * (ray.dir.dot(hit.normal)) * hit.normal;
-        pixel += shade.reflect * rayColor(Ray{ hit.pos, dir }, 0.0001f, 1.0f / 0.0f, depth + 1);
+        if (fabs(shade.idealReflect.norm()) > 0.001) {
+            Vector3 dir = ray.dir - 2 * (ray.dir.dot(hit.normal)) * hit.normal;
+            pixel +=
+                shade.idealReflect * rayColor(Ray{ hit.pos, dir }, 0.0001f, 1.0f / 0.0f, depth + 1);
+        }
+
+        return pixel;
     }
-    return pixel;
+}
+
+// 1. We find refraction ray according to Snell's law
+// 2. Total internal reflection can happen, in step 1. In that case, refraction ray is not
+// generated. Just relfect it.
+// 3. Then we calculate the amount of light we must reflect and vice versa (refraction amount)
+// according to Schlick approximation
+// 4. Lastly, we simulate impurities by Beer's law. (light lose intensity as it travels)
+// ------------------
+// 1. Finding refraction ray
+// n sin theta = n_t sin phi
+// We find sin by using identity sin^2 + cos^2 = 1
+// By substituting 1 - sin^2 and solving equation yields
+// cos^2 phi = 1 - (n^2(1-cos^2 theta))/n_t^2
+// with this in hands, we examine how to calculate the refraction ray by that qunatity
+// Notice that n and b (the vector tangent to the surface) forms orthogonal basis
+// and within this basis, refraction ray is (-cos phi, sin phi)
+// thus, t = sin phi b - cos phi n
+// we can get b by using the fact d is coplaner to the basis
+// solving the equation d = B*coord
+// b = (d + n cos theta)/sin theta
+// Solving t using all the infoes
+// t = n(d+n cos theta)/n_t - n cos phi =
+// n(d-d(d.n))/n_t - n sqrt(1-n^2(1-(d.n)^2)/n_t^2)
+// We assume that n = 1.0 (air)
+// and n_t is the parameter (shade.refractIndex)
+// 2. Total internal reflection
+// Total internal reflection happens when the sqrt term is complex number
+// just check if in sqrt(x) x is negative
+// 3. Schlick approximation
+// The method approximates Fresnel equations by following model
+// R(theta) = R_0 + (1-R_0)(1-cos theta)^5
+// where R_0 is ((n_t-1)/(n_t+1))^2
+// this will give the amount of light we should reflect
+// note that it only varies by the incident angle
+// 4. Beer's law
+// Beer's law is that
+// dI = -CIdx
+// where dx is the distance from the surface I is the light and C is parameter
+// solving this differnetial equation (it's classical dy/dx = ky equation)
+// I = k exp(-Cx)
+// I(0) = I_0 -> I(x) = I_0exp(-Cx)
+// I(1) = aI(0) -> I0a = I_0exp(-C)
+// -C = lna
+// I(s) = I(0)e^(ln(a)s)
+// we just supply whole ln(a) as parameter (folded)
+// the parameter is the shade.refractReflectance
+Vector3 RTCPURenderer::shadeDielectric(Ray ray, RayHit hit, const Shade& shade, int depth) {
+    hit.normal.normalize();
+    ray.dir.normalize();
+    Vector3 r = ray.dir - 2 * (ray.dir.dot(hit.normal)) * hit.normal;  // reflection ray
+    Vector3 k;                                                         // intensity approximated
+    Vector3 t;                                                         // refraction ray
+    Float c;                                                           // cos theta
+    if (ray.dir.dot(hit.normal) < 0) {                                 // backside
+        refractRay(ray, hit.normal, shade.refractIndex, t);
+        c = -ray.dir.dot(hit.normal);
+        k = Vector3(1.0, 1.0, 1.0);
+    } else {
+        Float kx = exp(-shade.refractReflectance.x() * hit.time * 10.0);
+        Float ky = exp(-shade.refractReflectance.y() * hit.time * 10.0);
+        Float kz = exp(-shade.refractReflectance.z() * hit.time * 10.0);
+        k = Vector3(kx, ky, kz);
+        if (refractRay(ray, -1 * hit.normal, 1 / shade.refractIndex, t)) {
+            c = t.dot(hit.normal);
+        } else {
+            return k * rayColor(Ray{ hit.pos, r }, 0.0001f, 1.0f / 0.0f, depth + 1);
+        }
+    }
+    Float a = (shade.refractIndex - 1);
+    Float b = (shade.refractIndex + 1);
+    Float R0 = (a * a) / (b * b);
+    Float R = R0 + (1 - R0) * pow(1 - c, 5.0f);
+    Vector3 reflectC = rayColor(Ray{ hit.pos, r }, 0.0001f, 1.0f / 0.0f, depth + 1);
+    Vector3 refractC = rayColor(Ray{ hit.pos, t }, 0.0001f, 1.0f / 0.0f, depth + 1);
+    return k * (R * reflectC + (1 - R) * refractC);
+}
+
+// Calculate refraction ray
+bool RTCPURenderer::refractRay(Ray ray, Vector3 normal, Float index, Vector3& out) {
+    Float cosTh = ray.dir.dot(normal);
+    Float cosPhi2 = 1 - (1 - cosTh * cosTh) / (index * index);
+    if (cosPhi2 < 0.0f) {
+        return false;
+    }
+    Vector3 firstTerm = (ray.dir - normal * cosTh) / index;
+    Vector3 secondTerm = normal * sqrt(cosPhi2);
+    out = firstTerm - secondTerm;
+    return true;
 }
 
 bool RTCPURenderer::testRay(Ray ray, Float t0, Float t1, RayHit& hit) {

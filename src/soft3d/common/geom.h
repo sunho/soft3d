@@ -3,6 +3,7 @@
 #include <soft3d/common/linalg.h>
 #include <soft3d/common/texture.h>
 
+#include <optional>
 #include <variant>
 
 struct Shade {
@@ -10,8 +11,10 @@ struct Shade {
     Vector3 diffuse;
     Vector3 ambient;
     Vector3 specular;
-    Vector3 reflect;
+    Vector3 idealReflect;
     Float phong{ 100.0 };
+    Float refractIndex{ 1.0 };
+    Vector3 refractReflectance;
 };
 
 struct PlainSphere {

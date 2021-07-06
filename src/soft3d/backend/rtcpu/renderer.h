@@ -15,7 +15,8 @@ struct RTCPURenderer : public Renderer {
     void renderPixel(const Vector2& pos, Image& screen);
     Vector3 rayColor(Ray ray, Float t0, Float t1, int depth = 0);
     Vector3 shadePlain(Ray ray, RayHit hit, const Shade& shade, int depth);
-
+    Vector3 shadeDielectric(Ray ray, RayHit hit, const Shade& shade, int depth);
+    bool refractRay(Ray ray, Vector3 normal, Float index, Vector3& out);
     bool testRay(Ray ray, Float t0, Float t1, RayHit& hit);
     bool testSphereRay(const Vector3& e, Float radius, Ray ray, Float t0, Float t1, RayHit& hit);
     bool testTriangleRay(const Triangle3& triangle, Ray ray, Float t0, Float t1, RayHit& hit);

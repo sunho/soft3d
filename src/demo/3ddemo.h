@@ -48,20 +48,22 @@ struct ObjLoad : public App {
         Shade shade1 = { .diffuse = Vector3(0.5, 1.0, 0.5),
                          .ambient = Vector3(0.5, 1.0, 0.5),
                          .specular = Vector3(0.3, 0.3, 0.3),
-                         .reflect = Vector3(0.0, 0.0, 0.0),
+                         .idealReflect = Vector3(0.0, 0.0, 0.0),
                          .phong = 100.0 };
 
         Shade shade2 = { .diffuse = Vector3(0.5, 0.5, 1.0),
                          .ambient = Vector3(0.5, 0.5, 1.0),
                          .specular = Vector3(0.3, 0.3, 0.3),
-                         .reflect = Vector3(0.2, 0.2, 0.2),
+                         .idealReflect = Vector3(0.2, 0.2, 0.2),
                          .phong = 100.0 };
         Shade shadewall = { .diffuse = Vector3(0.4, 0.4, 0.4),
                             .ambient = Vector3(0.8, 0.8, 0.8),
                             .specular = Vector3(0.3, 0.3, 0.3),
-                            .reflect = Vector3(0.2, 0.2, 0.2),
+                            .idealReflect = Vector3(0.2, 0.2, 0.2),
                             .phong = 100.0 };
+        Shade shadeglass = { .refractIndex = 1.5f, .refractReflectance = Vector3(-1.0, -1.0, 0.6) };
 
+        scene.geoms.add(PlainSphere(Vector3(0.0, 0.15, 0.6), 0.1, shadeglass));
         Float sz = -0.3;
         scene.geoms.add(PlainTriangle(Vector3(-1.0, 2.0, sz), Vector3(-1.0, -1.0, sz),
                                       Vector3(2.0, 2.0, sz), shadewall));
@@ -88,10 +90,12 @@ struct SphereRayTrace : public App {
     }
 
     void init(Engine& engine, Scene& scene) override {
-        Shade shade1 = { .diffuse = Vector3(0x9dcdfc),
-                         .ambient = Vector3(0x9dcdfc),
-                         .specular = Vector3(0.1, 0.1, 0.1),
-                         .phong = 100.0 };
+        Shade shade1 = {
+            .diffuse = Vector3(0x9dcdfc),
+            .ambient = Vector3(0x9dcdfc),
+            .specular = Vector3(0.1, 0.1, 0.1),
+            .phong = 100.0,
+        };
         Shade shade2 = { .diffuse = Vector3(0xfb9dfc),
                          .ambient = Vector3(0xfb9dfc),
                          .specular = Vector3(0.3, 0.3, 0.3),
@@ -99,12 +103,12 @@ struct SphereRayTrace : public App {
         Shade shadewall = { .diffuse = Vector3(0.3, 0.3, 0.3),
                             .ambient = Vector3(0.8, 0.8, 0.8),
                             .specular = Vector3(0.3, 0.3, 0.3),
-                            .reflect = Vector3(0.2, 0.2, 0.2),
+                            .idealReflect = Vector3(0.2, 0.2, 0.2),
                             .phong = 100.0 };
         Shade shadetri = { .diffuse = Vector3(0xd3e4f5),
                            .ambient = Vector3(0xd3e4f5),
                            .specular = Vector3(0.3, 0.3, 0.3),
-                           .reflect = Vector3(0.2, 0.2, 0.2),
+                           .idealReflect = Vector3(0.2, 0.2, 0.2),
                            .phong = 100.0 };
         LightSystem lightSystem;
         lightSystem.ambientIntensity = 0.2;
