@@ -1,24 +1,15 @@
 #pragma once
 #include <soft3d/image/texture.h>
 #include <soft3d/math/linalg.h>
+#include <soft3d/scene/geom.h>
 
 #include <fstream>
 #include <vector>
 
-struct ModelTriangle {
-    Vector3 a;
-    Vector3 b;
-    Vector3 c;
-    Vector3 nA;
-    Vector3 nB;
-    Vector3 nC;
-    Vector2 tA;
-    Vector2 tB;
-    Vector2 tC;
-};
-
 struct Mesh {
-    std::vector<ModelTriangle> data;
+    std::vector<TriangleVertex> vertices;
+
+    std::vector<Triangle> generateTriangles(Material material, TextureId tex);
 };
 
 struct Model {

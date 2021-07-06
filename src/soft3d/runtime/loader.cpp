@@ -2,13 +2,21 @@
 
 #include <stb_image.h>
 
-// This is slow
+std::vector<Triangle> Mesh::generateTriangles(Material material, TextureId tex) {
+    std::vector<Triangle> out;
+    for (int i = 0; i < vertices.size(); i += 3) {
+        Triangle tri(vertices[i], vertices[i + 1], vertices[i + 2], material);
+        tri.texture = tex;
+        out.push_back(tri);
+    }
+    return out;
+}
+
 Model loadObj(std::string path) {
     std::ifstream input;
     input.open(path);
     if (!input) {
-        printf("DIE\n");
-        std::terminate();
+        throw std::runtime_error("Invalid path");
     }
     Model model;
     std::vector<Vector3> vertices;
@@ -21,14 +29,11 @@ Model loadObj(std::string path) {
         }
         model.meshes.push_back(Mesh{});
         Mesh& mesh = model.meshes[model.meshes.size() - 1];
-        for (int i = 0; i < vertices.size(); i += 3) {
+        for (int i = 0; i < vertices.size(); ++i) {
             if (texs.size() != 0) {
-                mesh.data.push_back(ModelTriangle{ vertices[i], vertices[i + 1], vertices[i + 2],
-                                                   normals[i], normals[i + 1], normals[i + 2],
-                                                   texs[i], texs[i + 1], texs[i + 2] });
+                mesh.vertices.push_back(TriangleVertex{ vertices[i], normals[i], texs[i] });
             } else {
-                mesh.data.push_back(ModelTriangle{ vertices[i], vertices[i + 1], vertices[i + 2],
-                                                   normals[i], normals[i + 1], normals[i + 2] });
+                mesh.vertices.push_back(TriangleVertex{ vertices[i], normals[i] });
             }
         }
         vertices.clear();
@@ -70,8 +75,7 @@ Image loadTexture(std::string path) {
     auto* img = stbi_load(path.c_str(), &width, &height, &cn, 0);
     uint32_t* buffer = reinterpret_cast<uint32_t*>(img);
     if (!img) {
-        printf("DIE\n");
-        std::terminate();
+        throw std::runtime_error("Invalid path");
     }
     Image out(width, height);
     for (int j = 0; j < height; ++j) {

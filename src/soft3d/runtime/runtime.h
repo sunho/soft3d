@@ -12,7 +12,7 @@ struct AAProfile {
     Sequence1 filter;
 };
 
-struct EngineConfig {
+struct RuntimeConfig {
     int width;
     int height;
     int fps;
@@ -20,13 +20,13 @@ struct EngineConfig {
     std::optional<AAProfile> aaProfile;
 };
 
-struct Engine;
+struct Runtime;
 
 struct App {
     virtual ~App() {
     }
-    virtual void init(Engine& engine, Scene& scene) = 0;
-    virtual void update(Engine& engine, Scene& scene, double dt) = 0;
+    virtual void init(Runtime& engine, Scene& scene) = 0;
+    virtual void update(Runtime& engine, Scene& scene, double dt) = 0;
 };
 
 using UpdateFunc = std::function<uint32_t*()>;
@@ -43,9 +43,9 @@ struct WindowImpl {
 
 constexpr size_t LAST_FPS_COUNT = 5;
 
-struct Engine {
-    Engine() = delete;
-    Engine(EngineConfig conf);
+struct Runtime {
+    Runtime() = delete;
+    Runtime(RuntimeConfig conf);
 
     void run(App* app);
     void render(App* app, std::string path);
@@ -56,7 +56,7 @@ struct Engine {
     uint32_t* update();
     void initRenderer();
 
-    EngineConfig conf;
+    RuntimeConfig conf;
     App* app{ nullptr };
     std::unique_ptr<Renderer> renderer;
     std::unique_ptr<WindowImpl> window;

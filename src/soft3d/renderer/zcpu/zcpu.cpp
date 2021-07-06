@@ -17,9 +17,8 @@ void ZCPURenderer::render(Image& screen) {
     const Matrix VPOV = scene.camera.VPOV(screen);
     bakeShadowMap(screen);
 
-    Shader mainPass;
-    mainPass.func = [&](const Vector3& bary, const Vector3& homo, const Geometry& geom,
-                        Float depth) {
+    Shader mainPass = [&](const Vector3& bary, const Vector3& homo, const Geometry& geom,
+                          Float depth) {
         if (auto triangle = std::get_if<PlainTriangle>(&geom)) {
             return shadeSingleShadedTriangle(bary, *triangle);
         } else if (auto triangle = std::get_if<Triangle>(&geom)) {
@@ -35,15 +34,13 @@ void ZCPURenderer::render(Image& screen) {
     lightMvp.clear();
 }
 
-void ZCPURenderer::renderInternal(Image& screen, const Matrix& mvp, Shader& shader) {
+void ZCPURenderer::renderInternal(Image& screen, const Matrix& mvp, const Shader& shader) {
     zBuffer.resize(screen.getWidth() * screen.getHeight());
     std::fill(zBuffer.begin(), zBuffer.end(), -1.0 / 0.0);
     width = screen.getWidth();
     for (auto& [_, geom] : scene.geoms) {
         bool tmp = false;
-        if (auto sphere = std::get_if<PlainSphere>(&geom)) {
-            // todo
-        } else if (auto triangle = std::get_if<PlainTriangle>(&geom)) {
+        if (auto triangle = std::get_if<PlainTriangle>(&geom)) {
             Vector3 h(1.0f, 1.0f, 1.0f);
             Triangle3 projected = triangle->curve.transformed(mvp, h);
             drawTriangle(screen, projected, *triangle, h, shader);
@@ -73,9 +70,8 @@ void ZCPURenderer::bakeShadowMap(Image& screen) {
                          viewMatrix(basis, Vector3(0, 0, 0));
             lightMvp.emplace(lid, mvp);
             shadowMaps.emplace(lid, texId);
-            Shader shadowPass;
-            shadowPass.func = [&](const Vector3& bary, const Vector3& homo, const Geometry& geom,
-                                  Float depth) {
+            Shader shadowPass = [&](const Vector3& bary, const Vector3& homo, const Geometry& geom,
+                                    Float depth) {
                 return Vector3(0.0f, 0.0f, -(depth - near) / (near - far));
             };
             renderInternal(*scene.textures.get(texId), mvp, shadowPass);
@@ -92,7 +88,7 @@ void ZCPURenderer::setDepth(int i, int j, Float depth) {
 }
 
 void ZCPURenderer::drawTriangle(Image& screen, const Triangle3& triangle, const Geometry& geom,
-                                const Vector3& homo, Shader& shader) {
+                                const Vector3& homo, const Shader& shader) {
     Triangle2 tri(Vector2(triangle.pA[0], triangle.pA[1]), Vector2(triangle.pB[0], triangle.pB[1]),
                   Vector2(triangle.pC[0], triangle.pC[1]));
     const int x0 = std::max(std::min({ triangle.pA[0], triangle.pB[0], triangle.pC[0] }), 0.0f);
@@ -115,7 +111,7 @@ void ZCPURenderer::drawTriangle(Image& screen, const Triangle3& triangle, const 
                         if (this->getDepth(i, j) > depth)
                             continue;
                         setDepth(i, j, depth);
-                        screen.setPixel(i, j, shader.func(bary, homo, geom, depth));
+                        screen.setPixel(i, j, shader(bary, homo, geom, depth));
                     }
                 }
             }
@@ -133,7 +129,7 @@ void ZCPURenderer::drawTriangle(Image& screen, const Triangle3& triangle, const 
 }
 
 Vector3 ZCPURenderer::shadeSingleShadedTriangle(const Vector3& bary, const PlainTriangle& tri) {
-    Vector3 pixel = scene.lightSystem.ambientIntensity * tri.shade.ambient;
+    Vector3 pixel = scene.lightSystem.ambientIntensity * tri.material.ambient;
     Vector3 normal = tri.normal(Vector3()).normalized();
     Vector3 hit = tri.vA * bary.x() + tri.vB * bary.y() + tri.vC * bary.z();
 
@@ -147,10 +143,8 @@ Vector3 ZCPURenderer::shadeSingleShadedTriangle(const Vector3& bary, const Plain
             Float d = shadowMap->getPixel(shadowVec.x(), shadowVec.y()).z();
             if (fabs(d - dd) < 0.01) {
                 Float x = std::max(0.0f, light->v.dot(normal));
-                // Float x2 = std::max(0.0, h.dot(hit.normal));
-                pixel += light->intensity * (x * tri.shade.diffuse);
+                pixel += light->intensity * (x * tri.material.diffuse);
             }
-            // pixel = Vector3(0,0,d);
         }
     }
     return pixel;
@@ -190,7 +184,7 @@ Vector3 ZCPURenderer::shadeTriangle(const Vector3& bary, const Triangle& tri, co
                 nn = nn * 2.0f - Vector3(1.0f, 1.0f, 1.0f);
                 normal = tbn.mul<Vector3>(nn);*/
     } else {
-        diffuse = tri.shade.diffuse;
+        diffuse = tri.material.diffuse;
     }
     Vector3 pixel = scene.lightSystem.ambientIntensity * diffuse;
 
@@ -206,9 +200,8 @@ Vector3 ZCPURenderer::shadeTriangle(const Vector3& bary, const Triangle& tri, co
                 Float x = std::max(0.0f, light->v.dot(normal));
                 Float x2 = std::max(0.0f, h.dot(normal));
                 pixel += light->intensity *
-                         (x * diffuse + pow(x2, tri.shade.phong) * tri.shade.specular);
+                         (x * diffuse + pow(x2, tri.material.phong) * tri.material.specular);
             }
-            // pixel = Vector3(0,0,d);
         }
     }
     return pixel;

@@ -6,39 +6,37 @@
 #include <optional>
 #include <variant>
 
-struct Shade {
-    Shade() = default;
+struct Material {
+    Material() = default;
     Vector3 diffuse;
     Vector3 ambient;
     Vector3 specular;
-    Vector3 idealReflect;
     Float phong{ 100.0 };
-    Float refractIndex{ 1.0 };
+    std::optional<Vector3> idealReflect{ std::nullopt };
+    std::optional<Float> refractIndex{ std::nullopt };
     Vector3 refractReflectance;
 };
 
 struct PlainSphere {
-    Matrix transform{ I4x4 };
-    Matrix itransform{ I4x4 };
     Vector3 center;
     Float radius{ 0.0 };
-    Shade shade;
+    Material material;
 
     PlainSphere() = default;
-    explicit PlainSphere(Vector3 center, Float radius, Shade shade)
-        : center(center), radius(radius), shade(shade) {
+    explicit PlainSphere(Vector3 center, Float radius, Material material)
+        : center(center), radius(radius), material(material) {
     }
 };
 
 struct Sphere {
     Vector3 center;
     Float radius{ 0.0 };
-    Shade shade;
+    Material material;
     TextureId texture{ 0 };
 
     Sphere() = default;
-    explicit Sphere(Vector3 center, Float radius, Shade shade, TextureId texture)
-        : center(center), radius(radius), shade(shade), texture(texture) {
+    explicit Sphere(Vector3 center, Float radius, Material material, TextureId texture)
+        : center(center), radius(radius), material(material), texture(texture) {
     }
 };
 
@@ -47,11 +45,11 @@ struct PlainTriangle {
     Vector3 vB;
     Vector3 vC;
     Triangle3 curve;
-    Shade shade;
+    Material material;
 
     PlainTriangle() = default;
-    explicit PlainTriangle(Vector3 a, Vector3 b, Vector3 c, Shade shade)
-        : vA(a), vB(b), vC(c), shade(shade), curve(a, b, c) {
+    explicit PlainTriangle(Vector3 a, Vector3 b, Vector3 c, Material material)
+        : vA(a), vB(b), vC(c), material(material), curve(a, b, c) {
     }
 
     Vector3 normal(const Vector3& p) const {
@@ -70,13 +68,13 @@ struct Triangle {
     TriangleVertex vB;
     TriangleVertex vC;
     Triangle3 curve;
-    Shade shade;
+    Material material;
     TextureId texture{ 0 };
     TextureId normalMap{ 0 };
 
     Triangle() = default;
-    explicit Triangle(TriangleVertex a, TriangleVertex b, TriangleVertex c, Shade shade)
-        : vA(a), vB(b), vC(c), shade(shade), curve(a.pos, b.pos, c.pos) {
+    explicit Triangle(TriangleVertex a, TriangleVertex b, TriangleVertex c, Material material)
+        : vA(a), vB(b), vC(c), material(material), curve(a.pos, b.pos, c.pos) {
     }
 
     Vector3 normal(const Vector3& p) const {

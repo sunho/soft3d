@@ -4,8 +4,19 @@
 #include <soft3d/renderer/interface.h>
 #include <soft3d/scene/scene.h>
 
+struct RTCPUConfig {
+    RTCPUConfig() = default;
+    int threadNum{ 8 };
+    size_t maxWidth{ 1000 };
+    size_t maxHeight{ 1000 };
+    int maxRayHit{ 20 };
+    int distSampleNum{ 3 };
+    bool antialias{ false };
+    Float closeTime{ 0.0001f };
+};
+
 struct RTCPURenderer : public Renderer {
-    RTCPURenderer();
+    RTCPURenderer(RTCPUConfig conf);
     ~RTCPURenderer();
 
     Scene& sceneRef() override;
@@ -15,9 +26,9 @@ struct RTCPURenderer : public Renderer {
     void renderPixel(const Vector2& pos, Image& screen);
     Vector3 rayColor(Ray ray, Float t0, Float t1, const std::vector<Vector2>& jittered,
                      int depth = 0);
-    Vector3 shadePlain(Ray ray, RayHit hit, const Shade& shade,
+    Vector3 shadePhong(Ray ray, RayHit hit, const Material& shade,
                        const std::vector<Vector2>& jittered, int depth);
-    Vector3 shadeDielectric(Ray ray, RayHit hit, const Shade& shade,
+    Vector3 shadeDielectric(Ray ray, RayHit hit, const Material& shade,
                             const std::vector<Vector2>& jittered, int depth);
     bool refractRay(Ray ray, Vector3 normal, Float index, Vector3& out);
     bool testRay(Ray ray, Float t0, Float t1, RayHit& hit);
@@ -25,7 +36,7 @@ struct RTCPURenderer : public Renderer {
     bool testTriangleRay(const Triangle3& triangle, Ray ray, Float t0, Float t1, RayHit& hit);
     std::vector<Vector2> generateJittered(int n);
 
+    RTCPUConfig conf;
     ThreadPool<Vector2> threadPool;
-
     Scene scene;
 };

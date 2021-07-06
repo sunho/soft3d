@@ -73,15 +73,15 @@ struct GLFWWindowImpl : public WindowImpl {
     UpdateFunc updateFunc;
 };
 
-Engine::Engine(EngineConfig conf) : conf(conf), window(std::make_unique<GLFWWindowImpl>()) {
+Runtime::Runtime(RuntimeConfig conf) : conf(conf), window(std::make_unique<GLFWWindowImpl>()) {
     lastFps.fill(0.0);
     initRenderer();
 }
 
-void Engine::initRenderer() {
+void Runtime::initRenderer() {
     switch (conf.renderer) {
         case Backend::RTCPU:
-            renderer = std::make_unique<RTCPURenderer>();
+            renderer = std::make_unique<RTCPURenderer>(RTCPUConfig());
             break;
         case Backend::ZCPU:
             renderer = std::make_unique<ZCPURenderer>();
@@ -92,7 +92,7 @@ void Engine::initRenderer() {
     }
 }
 
-void Engine::run(App* app) {
+void Runtime::run(App* app) {
     this->app = app;
     app->init(*this, renderer->sceneRef());
     window->setUpdateFunc([=]() { return this->update(); });
@@ -102,7 +102,7 @@ void Engine::run(App* app) {
     window->runWindowLoop();
 }
 
-void Engine::render(App* app, std::string path) {
+void Runtime::render(App* app, std::string path) {
     this->app = app;
     app->init(*this, renderer->sceneRef());
     screen = Image(conf.width, conf.height);
@@ -112,7 +112,7 @@ void Engine::render(App* app, std::string path) {
     stbi_write_png(path.c_str(), conf.width, conf.height, 4, data, conf.width * 4);
 }
 
-uint32_t* Engine::update() {
+uint32_t* Runtime::update() {
     const auto currentFrame = std::chrono::system_clock::now();
     const int dt =
         std::chrono::duration_cast<std::chrono::milliseconds>(currentFrame - lastFrame).count();
@@ -146,11 +146,11 @@ uint32_t* Engine::update() {
     return conf.aaProfile ? newImage.data() : screen.data();
 }
 
-bool Engine::pressed(int keycode) {
+bool Runtime::pressed(int keycode) {
     return window->pressed(keycode);
 }
 
-double Engine::fps() {
+double Runtime::fps() {
     double out = 0;
     for (auto fps : lastFps)
         out += fps;

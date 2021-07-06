@@ -1,4 +1,5 @@
 #pragma once
+#include <soft3d/image/image.h>
 #include <soft3d/math/linalg.h>
 
 #include <vector>
