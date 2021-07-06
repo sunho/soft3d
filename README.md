@@ -7,12 +7,13 @@
 These features are all built from scrath by referring to fundamental of copmuter graphics
 
 - Phong shading
-- Antialiased texture sampling (spherial/vertex uv)
-- Image filters including Gaussian/bspline filter
-- Reflection (raytracer)
+- Reflection
 - Shadow
 - Soft shadow
 - Bielectric material (glass, water)
+- 2D curves (Bezier/bspline/nurbs)
+- Image filters including Gaussian/bspline filter
+- Antialiased texture sampling (spherial/vertex uv)
 - Basic graphics pipeline
 - Perspective correction
 - Parallel shading
