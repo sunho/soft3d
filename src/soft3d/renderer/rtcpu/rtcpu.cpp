@@ -1,4 +1,4 @@
-#include "renderer.h"
+#include "rtcpu.h"
 
 constexpr int THREAD_NUM = 8;
 constexpr int MAX_JOB = 2000 * 2000;

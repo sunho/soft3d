@@ -1,6 +1,6 @@
 #pragma once
 
-#include <soft3d/common/geom.h>
+#include <soft3d/scene/geom.h>
 
 #include <list>
 #include <map>

@@ -1,7 +1,7 @@
 #pragma once
 
-#include <soft3d/backend/interface.h>
-#include <soft3d/common/filter.h>
+#include <soft3d/image/filter.h>
+#include <soft3d/renderer/interface.h>
 
 #include <chrono>
 #include <optional>

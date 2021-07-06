@@ -1,11 +1,11 @@
 #pragma once
-#include <soft3d/common/bvhtree.h>
-#include <soft3d/common/curve.h>
-#include <soft3d/common/geom.h>
-#include <soft3d/common/image.h>
-#include <soft3d/common/linalg.h>
-#include <soft3d/common/texture.h>
-#include <soft3d/common/transform.h>
+#include <soft3d/image/image.h>
+#include <soft3d/image/texture.h>
+#include <soft3d/math/curve.h>
+#include <soft3d/math/linalg.h>
+#include <soft3d/math/transform.h>
+#include <soft3d/scene/bvhtree.h>
+#include <soft3d/scene/geom.h>
 
 #include <list>
 #include <map>

@@ -1,6 +1,6 @@
 #pragma once
-#include <soft3d/common/linalg.h>
 #include <soft3d/common/util.h>
+#include <soft3d/math/linalg.h>
 
 #include <vector>
 

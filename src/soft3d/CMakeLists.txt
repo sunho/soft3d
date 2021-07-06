@@ -1,27 +1,24 @@
 set(SOURCE_LIST
-    common/bvhtree.h
-    common/bsptree.h
-    common/linalg.h
-    common/geom.h
-    common/curve.h
-    common/image.h
+    scene/bvhtree.h
+    scene/geom.h
+    math/linalg.h
+    math/curve.h
+    math/transform.h
+    image/image.h
+    image/filter.h
+    image/texture.h
     common/util.h
-    common/transform.h
-    common/scene.h
-    common/filter.h
-    common/texture.h
     common/threadpool.h
-    engine/loader.cpp
-    engine/loader.h
-    engine/engine.cpp
-    engine/engine.h
-    backend/interface.h
-    backend/rtcpu/renderer.h
-    backend/rtcpu/renderer.cpp
-    backend/rtgl/renderer.h
-    backend/rtgl/renderer.cpp
-    backend/zcpu/renderer.h
-    backend/zcpu/renderer.cpp
+    common/idresource.h
+    runtime/loader.cpp
+    runtime/loader.h
+    runtime/runtime.cpp
+    runtime/runtime.h
+    renderer/interface.h
+    renderer/rtcpu/rtcpu.h
+    renderer/rtcpu/rtcpu.cpp
+    renderer/zcpu/zcpu.h
+    renderer/zcpu/zcpu.cpp
 )
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SOURCE_LIST})

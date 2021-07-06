@@ -1,11 +1,9 @@
-#include <soft3d/backend/rtcpu/renderer.h>
-#include <soft3d/backend/zcpu/renderer.h>
-#include <soft3d/common/curve.h>
-#include <soft3d/common/image.h>
-#include <soft3d/common/scene.h>
-#include <soft3d/common/transform.h>
-#include <soft3d/engine/engine.h>
-#include <soft3d/engine/loader.h>
+#include <soft3d/image/image.h>
+#include <soft3d/math/curve.h>
+#include <soft3d/math/transform.h>
+#include <soft3d/runtime/loader.h>
+#include <soft3d/runtime/runtime.h>
+#include <soft3d/scene/scene.h>
 
 #include <chrono>
 #include <thread>

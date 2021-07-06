@@ -1,7 +1,7 @@
 #pragma once
 
-#include <soft3d/common/image.h>
-#include <soft3d/common/scene.h>
+#include <soft3d/image/image.h>
+#include <soft3d/scene/scene.h>
 
 struct Renderer {
     Renderer() = default;

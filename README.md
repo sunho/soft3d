@@ -11,6 +11,8 @@ These features are all built from scrath by referring to fundamental of copmuter
 - Image filters including Gaussian/bspline filter
 - Reflection (raytracer)
 - Shadow
+- Soft shadow
+- Bielectric material (glass, water)
 - Basic graphics pipeline
 - Perspective correction
 - Parallel shading

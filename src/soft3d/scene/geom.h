@@ -1,7 +1,7 @@
 #pragma once
-#include <soft3d/common/curve.h>
-#include <soft3d/common/linalg.h>
-#include <soft3d/common/texture.h>
+#include <soft3d/image/texture.h>
+#include <soft3d/math/curve.h>
+#include <soft3d/math/linalg.h>
 
 #include <optional>
 #include <variant>

@@ -1,12 +1,12 @@
-#include "engine.h"
+#include "runtime.h"
 
 // clang-format off
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 // clang-format on
 
-#include <soft3d/backend/rtcpu/renderer.h>
-#include <soft3d/backend/zcpu/renderer.h>
+#include <soft3d/renderer/rtcpu/rtcpu.h>
+#include <soft3d/renderer/zcpu/zcpu.h>
 
 #include <stb_image_write.h>
 

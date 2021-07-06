@@ -1,7 +1,7 @@
 #pragma once
-#include <soft3d/common/image.h>
-#include <soft3d/common/linalg.h>
 #include <soft3d/common/util.h>
+#include <soft3d/image/image.h>
+#include <soft3d/math/linalg.h>
 
 #include <cmath>
 

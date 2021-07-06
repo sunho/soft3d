@@ -1,8 +1,8 @@
 #pragma once
 
-#include <soft3d/backend/interface.h>
-#include <soft3d/common/scene.h>
 #include <soft3d/common/threadpool.h>
+#include <soft3d/renderer/interface.h>
+#include <soft3d/scene/scene.h>
 
 struct Shader {
     std::function<Vector3(const Vector3& bary, const Vector3& homo, const Geometry& geom,

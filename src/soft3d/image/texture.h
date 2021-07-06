@@ -1,6 +1,6 @@
 #pragma once
 
-#include <soft3d/common/image.h>
+#include <soft3d/image/image.h>
 
 using TextureId = size_t;
 
