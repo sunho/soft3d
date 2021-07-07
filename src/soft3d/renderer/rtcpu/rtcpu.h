@@ -6,7 +6,7 @@
 
 struct RTCPUConfig {
     RTCPUConfig() = default;
-    int threadNum{ 8 };
+    int threadNum{ 10 };
     size_t maxWidth{ 1000 };
     size_t maxHeight{ 1000 };
     int maxRayHit{ 20 };
@@ -33,7 +33,8 @@ struct RTCPURenderer : public Renderer {
     bool refractRay(Ray ray, Vector3 normal, Float index, Vector3& out);
     bool testRay(Ray ray, Float t0, Float t1, RayHit& hit);
     bool testSphereRay(const Vector3& e, Float radius, Ray ray, Float t0, Float t1, RayHit& hit);
-    bool testTriangleRay(const Triangle3& triangle, Ray ray, Float t0, Float t1, RayHit& hit);
+    bool testTriangleRay(const Triangle3& triangle, Ray ray, Float t0, Float t1, RayHit& hit,
+                         bool singleSide);
     std::vector<Vector2> generateJittered(int n);
 
     RTCPUConfig conf;

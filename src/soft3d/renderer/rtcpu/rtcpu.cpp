@@ -71,9 +71,6 @@ Vector3 RTCPURenderer::rayColor(Ray ray, Float t0, Float t1, const std::vector<V
             }
             hit.normal = triangle->vA.normal * bary.x() + triangle->vB.normal * bary.y() +
                          triangle->vC.normal * bary.z();
-            if (triangle->curve.sameFace(ray.dir)) {
-                hit.normal *= -1;
-            }
         }
         if (material.refractIndex) {
             return shadeDielectric(ray, hit, material, jittered, depth);
@@ -81,6 +78,12 @@ Vector3 RTCPURenderer::rayColor(Ray ray, Float t0, Float t1, const std::vector<V
             return shadePhong(ray, hit, material, jittered, depth);
         }
     } else {
+        if (scene.environmentMap) {
+            Vector2 uv = convertSphereTexcoord(ray.dir);
+            uv.x() = fmod(uv.x() + 0.25, 1.0);
+            uv.y() = fmin(uv.y(), 1.0);
+            return sampleBilinear(*scene.textures.get(scene.environmentMap), uv, false);
+        }
         return Vector3(0.0f, 0.0f, 0.0f);
     }
 }
@@ -191,13 +194,15 @@ Vector3 RTCPURenderer::shadeDielectric(Ray ray, RayHit hit, const Material& shad
                                        const std::vector<Vector2>& jittered, int depth) {
     hit.normal.normalize();
     ray.dir.normalize();
-    Vector3 r = ray.dir - 2 * (ray.dir.dot(hit.normal)) * hit.normal;  // reflection ray
-    Vector3 k;                                                         // intensity approximated
-    Vector3 t;                                                         // refraction ray
-    Float c;                                                           // cos theta
-    if (ray.dir.dot(hit.normal) < 0) {                                 // backside
+    Vector3 dir = ray.dir;
+    Vector3 r =
+        (ray.dir - 2 * (ray.dir.dot(hit.normal)) * hit.normal).normalized();  // reflection ray
+    Vector3 k;                      // intensity approximated
+    Vector3 t;                      // refraction ray
+    Float c;                        // cos theta
+    if (dir.dot(hit.normal) < 0) {  // backside
         refractRay(ray, hit.normal, *shade.refractIndex, t);
-        c = -ray.dir.dot(hit.normal);
+        c = -dir.dot(hit.normal);
         k = Vector3(1.0, 1.0, 1.0);
     } else {
         Float kx = exp(-shade.refractReflectance.x() * hit.time);
@@ -228,7 +233,7 @@ bool RTCPURenderer::refractRay(Ray ray, Vector3 normal, Float index, Vector3& ou
     }
     Vector3 firstTerm = (ray.dir - normal * cosTh) / index;
     Vector3 secondTerm = normal * sqrt(cosPhi2);
-    out = firstTerm - secondTerm;
+    out = (firstTerm - secondTerm).normalized();
     return true;
 }
 
@@ -244,7 +249,8 @@ bool RTCPURenderer::testRay(Ray ray, Float t0, Float t1, RayHit& hit) {
             if (ray.isShadow && triangle->material.refractIndex) {
                 return false;
             }
-            return testTriangleRay(triangle->curve, ray, t0, t1, hit);
+            return testTriangleRay(triangle->curve, ray, t0, t1, hit,
+                                   !triangle->material.refractIndex);
         } else if (auto sphere = std::get_if<Sphere>(geom)) {
             if (ray.isShadow && sphere->material.refractIndex) {
                 return false;
@@ -254,7 +260,8 @@ bool RTCPURenderer::testRay(Ray ray, Float t0, Float t1, RayHit& hit) {
             if (ray.isShadow && triangle->material.refractIndex) {
                 return false;
             }
-            return testTriangleRay(triangle->curve, ray, t0, t1, hit);
+            return testTriangleRay(triangle->curve, ray, t0, t1, hit,
+                                   !triangle->material.refractIndex);
         }
     };
     return scene.geoms.testRay(ray, t0, t1, hit, testGeomFunc);
@@ -324,10 +331,16 @@ bool RTCPURenderer::testSphereRay(const Vector3& e, Float radius, Ray ray, Float
 // t = -(f(ak-jb)+e(jc-al)+d(bl-kc) / M)
 // M = a(ei-hf) + b(gf-di) + c(dh-eg)
 bool RTCPURenderer::testTriangleRay(const Triangle3& triangle, Ray ray, Float t0, Float t1,
-                                    RayHit& hit) {
+                                    RayHit& hit, bool singleSide) {
     Vector3 vA = triangle.pA;
     Vector3 vB = triangle.pB;
     Vector3 vC = triangle.pC;
+    Vector3 ab = vB - vA;
+    Vector3 ac = vC - vA;
+    Vector3 normal = ab.cross(ac).normalized();
+    if (singleSide && normal.dot(ray.dir) > 0) {
+        return false;
+    }
     Float a = vA.x() - vB.x();
     Float b = vA.y() - vB.y();
     Float c = vA.z() - vB.z();
@@ -357,8 +370,6 @@ bool RTCPURenderer::testTriangleRay(const Triangle3& triangle, Ray ray, Float t0
     }
     hit.pos = ray.origin + t * ray.dir;
     hit.time = t;
-    Vector3 ab = vB - vA;
-    Vector3 ac = vC - vA;
-    hit.normal = ab.cross(ac).normalized();
+    hit.normal = normal;
     return true;
 }

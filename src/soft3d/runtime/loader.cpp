@@ -2,14 +2,32 @@
 
 #include <stb_image.h>
 
-std::vector<Triangle> Mesh::generateTriangles(Material material, TextureId tex) {
+std::vector<Triangle> Model::generateTriangles(int mesh, Material material, TextureId tex) {
+    Mesh& mesh_ = meshes[mesh];
     std::vector<Triangle> out;
-    for (int i = 0; i < vertices.size(); i += 3) {
-        Triangle tri(vertices[i], vertices[i + 1], vertices[i + 2], material);
+    for (int i = 0; i < mesh_.indices.size(); i += 3) {
+        TriangleVertex a{ v[mesh_.indices[i].v], vn[mesh_.indices[i].vn], vt[mesh_.indices[i].vt] };
+        TriangleVertex b{ v[mesh_.indices[i + 1].v], vn[mesh_.indices[i + 1].vn],
+                          vt[mesh_.indices[i + 1].vt] };
+        TriangleVertex c{ v[mesh_.indices[i + 2].v], vn[mesh_.indices[i + 2].vn],
+                          vt[mesh_.indices[i + 2].vt] };
+        Triangle tri(a, b, c, material);
         tri.texture = tex;
         out.push_back(tri);
     }
     return out;
+}
+
+std::vector<std::string> split(std::string input, char delimiter) {
+    std::vector<std::string> answer;
+    std::stringstream ss(input);
+    std::string temp;
+
+    while (getline(ss, temp, delimiter)) {
+        answer.push_back(temp);
+    }
+
+    return answer;
 }
 
 Model loadObj(std::string path) {
@@ -22,23 +40,14 @@ Model loadObj(std::string path) {
     std::vector<Vector3> vertices;
     std::vector<Vector3> normals;
     std::vector<Vector2> texs;
+    std::vector<MeshIndex> indices;
     std::string line;
     const auto flush = [&]() {
         if (vertices.size() == 0) {
             return;
         }
-        model.meshes.push_back(Mesh{});
-        Mesh& mesh = model.meshes[model.meshes.size() - 1];
-        for (int i = 0; i < vertices.size(); ++i) {
-            if (texs.size() != 0) {
-                mesh.vertices.push_back(TriangleVertex{ vertices[i], normals[i], texs[i] });
-            } else {
-                mesh.vertices.push_back(TriangleVertex{ vertices[i], normals[i] });
-            }
-        }
-        vertices.clear();
-        normals.clear();
-        texs.clear();
+        model.meshes.push_back(Mesh{ indices });
+        indices.clear();
     };
     bool process = false;
     while (getline(input, line)) {
@@ -62,10 +71,30 @@ Model loadObj(std::string path) {
                 std::string s = line.substr(pos);
                 sscanf(s.c_str(), "%lf %lf", &a, &b);
                 texs.push_back(Vector2(a, b));
+            } else if (command == "f") {
+                std::vector<std::string> vets = split(line.substr(pos), ' ');
+                std::vector<int> cords;
+                std::for_each(vets.begin(), vets.end(), [&](std::string str) {
+                    std::vector<std::string> cordStrs = split(str, '/');
+                    for (auto& cordStr : cordStrs) {
+                        cords.push_back(std::stoi(cordStr));
+                    }
+                });
+                if (cords.size() != 9) {
+                    throw std::runtime_error("Invalid index");
+                }
+                indices.push_back({ cords[0] - 1, cords[1] - 1, cords[2] - 1 });
+                indices.push_back({ cords[3] - 1, cords[4] - 1, cords[5] - 1 });
+                indices.push_back({ cords[6] - 1, cords[7] - 1, cords[8] - 1 });
+            } else {
+                printf("unknwon: %s\n", line.c_str());
             }
         }
     }
     flush();
+    model.v = vertices;
+    model.vn = normals;
+    model.vt = texs;
     return model;
 }
 

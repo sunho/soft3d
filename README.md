@@ -17,3 +17,11 @@ These features are all built from scrath by referring to fundamental of copmuter
 - Basic graphics pipeline
 - Perspective correction
 - Parallel shading
+
+## Build 
+```
+git clone --recursive https://github.com/sunho/soft3d
+cd soft3d
+cmake --build build
+```
+build folder will contain the build file (visual stduio project, xcode project, makefile, etc)

@@ -30,6 +30,12 @@ struct Camera {
         return Ray{ e, dir.normalized() };
     }
 
+    Ray generateOrthRay(const Vector2& pos, const Image& screen) {
+        const Float u = (pos.x() + 0.5) / screen.getWidth() - 0.5;
+        const Float v = (pos.y() + 0.5) / screen.getHeight() - 0.5;
+        return Ray{ e + u * basis.u + v * basis.v, -1 * basis.w };
+    }
+
     Matrix VPOV(const Image& screen) {
         const Matrix v = viewMatrix(basis, e);
         const Matrix p = perspectiveProjectionMatrix(-1.0, -2.0);
@@ -72,6 +78,7 @@ struct GScene {
     GeomTree geoms;
     Camera camera;
     LightSystem lightSystem;
+    TextureId environmentMap{ 0 };
 };
 
 using Scene = GScene<BvhTree>;

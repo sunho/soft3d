@@ -23,6 +23,12 @@ struct Image {
         return getPixel(x, y);
     }
 
+    inline Vector3 getPixelClamp(int x, int y) {
+        x = std::max(0, std::min(x, (int)width - 1));
+        y = std::max(0, std::min(y, (int)height - 1));
+        return getPixel(x, y);
+    }
+
     inline void setPixel(int x, int y, const Vector3& rgb) {
         if (x < 0 || x >= width || y < 0 || y >= height)
             return;

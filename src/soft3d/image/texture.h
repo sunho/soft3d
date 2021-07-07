@@ -14,14 +14,14 @@ using TextureId = size_t;
 static Vector2 convertSphereTexcoord(const Vector3& pos) {
     Float r = pos.norm();
     Float u = (PI + atan2(pos.y(), pos.x())) / (2 * PI);
-    Float v = (asin(pos.z() / r)) / PI;
+    Float v = (PI - asin(pos.z() / r)) / PI;
     return Vector2(u, v);
 }
 
 // Just point sample it
 static Vector3 samplePoint(Image& texture, const Vector2& uv) {
     int i = round(uv.x() * texture.getWidth() - 0.5f);
-    int j = round(uv.y() * texture.getWidth() - 0.5f);
+    int j = round(uv.y() * texture.getHeight() - 0.5f);
     return texture.getPixelWrap(i, j);
 }
 
@@ -34,7 +34,7 @@ static Vector3 samplePoint(Image& texture, const Vector2& uv) {
 // the jacobian components
 // Q: Can interpolation be right reconsturction filter?
 // A: We can apply the smooth filter on texture before going into pipeline
-static Vector3 sampleBilinear(Image& texture, const Vector2& uv) {
+static Vector3 sampleBilinear(Image& texture, const Vector2& uv, bool wrap = true) {
     Float uP = uv.x() * texture.getWidth() - 0.5;
     Float vP = uv.y() * texture.getHeight() - 0.5;
     int iu0 = std::max(uP, 0.0f);
@@ -46,10 +46,17 @@ static Vector3 sampleBilinear(Image& texture, const Vector2& uv) {
     Float aV = (iv1 - vP);
     Float bV = (1.0f - aV);
     Vector3 out;
-    out += aU * aV * texture.getPixelWrap(iu0, iv0);
-    out += aU * bV * texture.getPixelWrap(iu0, iv1);
-    out += bU * aV * texture.getPixelWrap(iu1, iv0);
-    out += bU * bV * texture.getPixelWrap(iu1, iv1);
+    if (wrap) {
+        out += aU * aV * texture.getPixelWrap(iu0, iv0);
+        out += aU * bV * texture.getPixelWrap(iu0, iv1);
+        out += bU * aV * texture.getPixelWrap(iu1, iv0);
+        out += bU * bV * texture.getPixelWrap(iu1, iv1);
+    } else {
+        out += aU * aV * texture.getPixelClamp(iu0, iv0);
+        out += aU * bV * texture.getPixelClamp(iu0, iv1);
+        out += bU * aV * texture.getPixelClamp(iu1, iv0);
+        out += bU * bV * texture.getPixelClamp(iu1, iv1);
+    }
     return out;
 }
 

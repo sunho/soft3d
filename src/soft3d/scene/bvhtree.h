@@ -82,7 +82,7 @@ struct BvhTree {
                          const LeafTestFunc& func) {
         if (node.rect.hit(ray)) {
             if (node.isBox()) {
-                BvhBox& box = dynamic_cast<BvhBox&>(node);
+                BvhBox& box = static_cast<BvhBox&>(node);
                 RayHit leftHit;
                 RayHit rightHit;
                 const bool leftTest =
@@ -105,7 +105,7 @@ struct BvhTree {
                 }
                 return false;
             } else {
-                BvhGeom& geom = dynamic_cast<BvhGeom&>(node);
+                BvhGeom& geom = static_cast<BvhGeom&>(node);
                 return func(&geom.geom, ray, t0, t1, hit);
             }
         } else {

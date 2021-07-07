@@ -22,7 +22,7 @@ void instantiateMesh(Scene& scene, Model& model, int i, Material material, std::
         Image base = loadTexture(tex);
         texId = scene.textures.move(std::move(base));
     }
-    auto triangles = model.meshes[i].generateTriangles(material, texId);
+    auto triangles = model.generateTriangles(i, material, texId);
     for (auto& tri : triangles) {
         scene.geoms.add(tri);
     }
@@ -39,7 +39,7 @@ struct AnimeLoad : public App {
         basis.u = Vector3(1.0, 0.0, 0.0);
         basis.v = Vector3(0.0, 1.0, 0.0);
         basis.w = Vector3(0.0, 0.0, 1.0);
-        scene.camera = Camera(Vector3(0.0, 0.4, 1.5), basis, 1.0);
+        scene.camera = Camera(Vector3(0.0, 0.4, 2.0), basis, 1.0);
         LightSystem lightSystem{};
         lightSystem.ambientIntensity = 0.5;
         /*lightSystem.lights.move(
@@ -51,25 +51,31 @@ struct AnimeLoad : public App {
         Material material1 = { .diffuse = Vector3(0.5, 1.0, 0.5),
                                .ambient = Vector3(0.5, 1.0, 0.5),
                                .specular = Vector3(0.3, 0.3, 0.3),
-                               .idealReflect = Vector3(0.0, 0.0, 0.0),
+
                                .phong = 1.0 };
+
+        Material material2 = { .diffuse = Vector3(0.5, 0.5, 0.5),
+                               .ambient = Vector3(0.5, 0.5, 0.5),
+                               .specular = Vector3(0.3, 0.3, 0.3),
+                               .idealReflect = Vector3(0.3, 0.3, 0.3),
+                               .phong = 100.0 };
 
         Material materialwall = { .diffuse = Vector3(0.4, 0.4, 0.4),
                                   .ambient = Vector3(0.8, 0.8, 0.8),
                                   .specular = Vector3(0.3, 0.3, 0.3),
-                                  .idealReflect = Vector3(0.2, 0.2, 0.2),
+                                  //.idealReflect = Vector3(0.3, 0.3, 0.3),
                                   .phong = 100.0 };
         Material materialglass = { .refractIndex = 1.5f,
-                                   .refractReflectance = Vector3(0.5, 0.5, 0.5) };
-
-        scene.geoms.add(PlainSphere(Vector3(0.3, 0.15, 0.2), 0.15, materialglass));
-        scene.geoms.add(PlainSphere(Vector3(-0.4, 0.3, 0.2), 0.2, materialglass));
-        scene.geoms.add(PlainSphere(Vector3(0.0, 0.75, 0.5), 0.3, materialglass));
+                                   .refractReflectance = Vector3(0.0, 0.0, -0.2) };
+        scene.environmentMap = scene.textures.move(loadTexture("resources/env.jpg"));
+        scene.geoms.add(PlainSphere(Vector3(0.3, 0.15, 0.4), 0.15, material2));
+        scene.geoms.add(PlainSphere(Vector3(-0.4, 0.3, 0.4), 0.2, materialglass));
+        // scene.geoms.add(PlainSphere(Vector3(0.0, 0.75, 0.5), 0.3, materialglass));
 
         Float sz = -0.3;
-        scene.geoms.add(PlainTriangle(Vector3(-1.0, 2.0, sz), Vector3(-1.0, -1.0, sz),
+        scene.geoms.add(PlainTriangle(Vector3(-2.0, 2.0, sz), Vector3(-2.0, -2.0, sz),
                                       Vector3(2.0, 2.0, sz), materialwall));
-        scene.geoms.add(PlainTriangle(Vector3(-1.0, -1.0, sz), Vector3(1.0, -2.0, sz),
+        scene.geoms.add(PlainTriangle(Vector3(-2.0, -2.0, sz), Vector3(2.0, -2.0, sz),
                                       Vector3(2.0, 2.0, sz), materialwall));
 
         Model model = loadObj("resources/anime.obj");
@@ -78,7 +84,7 @@ struct AnimeLoad : public App {
         instantiateMesh(scene, model, 1, material1, "resources/face_c.jpeg");
         instantiateMesh(scene, model, 2, material1, "resources/hair_c.jpeg");
         instantiateMesh(scene, model, 3, material1, "resources/acce_c.jpeg");
-        // loadMesh(model2, 0, shadeglass, "");
+        // instantiateMesh(scene, model2, 0, materialglass, "");
     }
 
     void update(Runtime& engine, Scene& scene, double dt) override {
@@ -117,7 +123,7 @@ struct ObjLoad : public App {
                                   .specular = Vector3(0.3, 0.3, 0.3),
                                   .idealReflect = Vector3(0.2, 0.2, 0.2),
                                   .phong = 100.0 };
-        Material materialglass = { .refractIndex = 1.5f,
+        Material materialglass = { .refractIndex = 1.3f,
                                    .refractReflectance = Vector3(-1.0, -1.0, 0.6) };
 
         scene.geoms.add(PlainSphere(Vector3(0.0, 0.15, 0.6), 0.1, materialglass));

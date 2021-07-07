@@ -26,5 +26,3 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SOURCE_LIST})
 add_library(soft3d ${SOURCE_LIST})
 target_link_libraries(soft3d PRIVATE glfw glad stb_image)
 target_include_directories(soft3d PUBLIC .. ${CMAKE_CURRENT_BINARY_DIR}/..)
-
-create_resources(${CMAKE_CURRENT_SOURCE_DIR}/backend/rtgl/shaders ${CMAKE_CURRENT_BINARY_DIR}/backend/rtgl/shaders.h)
