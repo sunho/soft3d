@@ -123,10 +123,10 @@ struct ObjLoad : public App {
                                   .specular = Vector3(0.3, 0.3, 0.3),
                                   .idealReflect = Vector3(0.2, 0.2, 0.2),
                                   .phong = 100.0 };
-        Material materialglass = { .refractIndex = 1.3f,
-                                   .refractReflectance = Vector3(-1.0, -1.0, 0.6) };
+        Material materialglass = { .refractIndex = 1.5f,
+                                   .refractReflectance = Vector3(0.0, 0.0, -0.3) };
 
-        scene.geoms.add(PlainSphere(Vector3(0.0, 0.15, 0.6), 0.1, materialglass));
+        scene.geoms.add(PlainSphere(Vector3(0.0, 0.15, 0.7), 0.1, materialglass));
         Float sz = -0.3;
         scene.geoms.add(PlainTriangle(Vector3(-1.0, 2.0, sz), Vector3(-1.0, -1.0, sz),
                                       Vector3(2.0, 2.0, sz), materialwall));

@@ -84,10 +84,7 @@ void Runtime::initRenderer() {
             renderer = std::make_unique<RTCPURenderer>(RTCPUConfig());
             break;
         case Backend::ZCPU:
-            renderer = std::make_unique<ZCPURenderer>();
-            break;
-        case Backend::RTGL:
-            // TODO
+            renderer = std::make_unique<ZCPURenderer>(ZCPUConfig());
             break;
     }
 }

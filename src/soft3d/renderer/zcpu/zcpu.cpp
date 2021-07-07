@@ -1,9 +1,49 @@
 #include "zcpu.h"
 
-constexpr int THREAD_NUM = 8;
-constexpr int MAX_JOB = 2000 * 2000;
+void ZBuffer::reset(int width, int height) {
+    data.resize(width * height);
+    this->width = width;
+    this->height = height;
+    std::fill(data.begin(), data.end(), NINF);
+}
 
-ZCPURenderer::ZCPURenderer() : threadPool(THREAD_NUM, MAX_JOB) {
+Float ZBuffer::get(int i, int j) const {
+    return data[width * j + i];
+}
+
+void ZBuffer::set(int i, int j, Float depth) {
+    data[width * j + i] = depth;
+}
+
+ShadowBuffer::ShadowBuffer(Scene& scene, Float near, Float far)
+    : scene(scene), near(near), far(far) {
+}
+
+void ShadowBuffer::addBakedShadow(int lightId, const Matrix& mvp, const TextureId& texId) {
+    shadowMaps.emplace(lightId, texId);
+    lightMvp.emplace(lightId, mvp);
+}
+
+bool ShadowBuffer::shadowTest(int lightId, const Vector3& pos) {
+    Vector3 shadowVec = pos.transformed(lightMvp.at(lightId), 1.0f).homoDiv();
+    Float dd = -(shadowVec.z() - near) / (near - far);
+    Image* shadowMap = scene.textures.get(shadowMaps.at(lightId));
+    Float d = shadowMap->getPixel(shadowVec.x(), shadowVec.y()).z();
+    return fabs(d - dd) < 0.01;
+}
+
+void ShadowBuffer::releaseAll() {
+    for (auto [tex, _] : shadowMaps) {
+        scene.textures.release(tex);
+    }
+    shadowMaps.clear();
+    lightMvp.clear();
+}
+
+ZCPURenderer::ZCPURenderer(ZCPUConfig conf)
+    : conf(conf)
+    , threadPool(conf.threadNum, conf.maxWidth * conf.maxHeight)
+    , shadowBuffer(scene, conf.shadowNear, conf.shadowFar) {
 }
 
 ZCPURenderer::~ZCPURenderer() {
@@ -14,81 +54,69 @@ Scene& ZCPURenderer::sceneRef() {
 }
 
 void ZCPURenderer::render(Image& screen) {
+    populateShadowBuffer(screen);
     const Matrix VPOV = scene.camera.VPOV(screen);
-    bakeShadowMap(screen);
-
     Shader mainPass = [&](const Vector3& bary, const Vector3& homo, const Geometry& geom,
                           Float depth) {
         if (auto triangle = std::get_if<PlainTriangle>(&geom)) {
-            return shadeSingleShadedTriangle(bary, *triangle);
+            return shadePlainTriangle(bary, *triangle);
         } else if (auto triangle = std::get_if<Triangle>(&geom)) {
             return shadeTriangle(bary, *triangle, homo);
         }
     };
-    renderInternal(screen, VPOV, mainPass);
-
-    for (auto [_, texId] : shadowMaps) {
-        scene.textures.release(texId);
-    }
-    shadowMaps.clear();
-    lightMvp.clear();
+    renderPass(screen, VPOV, mainPass);
+    shadowBuffer.releaseAll();
 }
 
-void ZCPURenderer::renderInternal(Image& screen, const Matrix& mvp, const Shader& shader) {
-    zBuffer.resize(screen.getWidth() * screen.getHeight());
-    std::fill(zBuffer.begin(), zBuffer.end(), -1.0 / 0.0);
-    width = screen.getWidth();
-    for (auto& [_, geom] : scene.geoms) {
-        bool tmp = false;
-        if (auto triangle = std::get_if<PlainTriangle>(&geom)) {
-            Vector3 h(1.0f, 1.0f, 1.0f);
-            Triangle3 projected = triangle->curve.transformed(mvp, h);
-            drawTriangle(screen, projected, *triangle, h, shader);
-        } else if (auto triangle = std::get_if<Triangle>(&geom)) {
-            Vector3 h(1.0f, 1.0f, 1.0f);
-            Triangle3 projected = triangle->curve.transformed(mvp, h);
-            drawTriangle(screen, projected, *triangle, h, shader);
-        }
-    }
-}
-
-constexpr Float far = -1.0;
-
-constexpr Float near = 1.0;
-
-void ZCPURenderer::bakeShadowMap(Image& screen) {
-    for (auto lid : scene.lightSystem.lights.ids()) {
-        Light* l = scene.lightSystem.lights.get(lid);
+void ZCPURenderer::populateShadowBuffer(Image& screen) {
+    for (auto lightId : scene.lightSystem.lights.ids()) {
+        Light* l = scene.lightSystem.lights.get(lightId);
         if (auto light = std::get_if<DirectionalLight>(l)) {
-            int texId = scene.textures.create(1000, 1000);
+            int texId = scene.textures.create(conf.shadowMapWidth, conf.shadowMapHeight);
             Basis basis;
             basis.w = light->v;
             basis.u = Vector3(0, 0, 1).cross(basis.w).normalized();
             basis.v = basis.w.cross(basis.u);
-            Matrix mvp = viewportMatrix(1000, 1000) *
-                         orthProjectionMatrix(-2.0, 2.0, -2.0, 2.0, near, far) *
-                         viewMatrix(basis, Vector3(0, 0, 0));
-            lightMvp.emplace(lid, mvp);
-            shadowMaps.emplace(lid, texId);
+            Matrix mvp =
+                viewportMatrix(conf.shadowMapWidth, conf.shadowMapHeight) *
+                orthProjectionMatrix(-2.0, 2.0, -2.0, 2.0, conf.shadowNear, conf.shadowFar) *
+                viewMatrix(basis, Vector3(0, 0, 0));
+            shadowBuffer.addBakedShadow(lightId, mvp, texId);
             Shader shadowPass = [&](const Vector3& bary, const Vector3& homo, const Geometry& geom,
                                     Float depth) {
-                return Vector3(0.0f, 0.0f, -(depth - near) / (near - far));
+                return Vector3(0.0f, 0.0f,
+                               -(depth - conf.shadowNear) / (conf.shadowNear - conf.shadowFar));
             };
-            renderInternal(*scene.textures.get(texId), mvp, shadowPass);
+            renderPass(*scene.textures.get(texId), mvp, shadowPass);
         }
     }
 }
 
-Float ZCPURenderer::getDepth(int i, int j) {
-    return zBuffer[j * width + i];
+void ZCPURenderer::renderPass(Image& screen, const Matrix& mvp, const Shader& shader) {
+    zBuffer.reset(screen.getWidth(), screen.getHeight());
+    fragmentJobBuffer = threadPool.allocJobBuffer(screen.getWidth() * screen.getHeight());
+    threadPool.setJobFunc([&](FragmentInfo info) {
+        screen.setPixel(info.i, info.j, shader(info.bary, info.homo, info.geom, info.depth));
+    });
+    // Push fragment jobs into threadPool
+    for (auto& [_, geom] : scene.geoms) {
+        if (auto triangle = std::get_if<PlainTriangle>(&geom)) {
+            Vector3 h;
+            Triangle3 projected = triangle->curve.transformed(mvp, h);
+            addDrawTriangleJob(screen, projected, *triangle, h, shader);
+        } else if (auto triangle = std::get_if<Triangle>(&geom)) {
+            Vector3 h;
+            Triangle3 projected = triangle->curve.transformed(mvp, h);
+            addDrawTriangleJob(screen, projected, *triangle, h, shader);
+        }
+    }
+    // Do all the works!
+    threadPool.flush(conf.threadNum);
 }
 
-void ZCPURenderer::setDepth(int i, int j, Float depth) {
-    zBuffer[j * width + i] = depth;
-}
-
-void ZCPURenderer::drawTriangle(Image& screen, const Triangle3& triangle, const Geometry& geom,
-                                const Vector3& homo, const Shader& shader) {
+void ZCPURenderer::addDrawTriangleJob(Image& screen, const Triangle3& triangle,
+                                      const Geometry& geom, const Vector3& homo,
+                                      const Shader& shader) {
     Triangle2 tri(Vector2(triangle.pA[0], triangle.pA[1]), Vector2(triangle.pB[0], triangle.pB[1]),
                   Vector2(triangle.pC[0], triangle.pC[1]));
     const int x0 = std::max(std::min({ triangle.pA[0], triangle.pB[0], triangle.pC[0] }), 0.0f);
@@ -98,110 +126,104 @@ void ZCPURenderer::drawTriangle(Image& screen, const Triangle3& triangle, const 
     const int y1 = std::min(std::max({ triangle.pA[1], triangle.pB[1], triangle.pC[1] }) + 1,
                             (float)screen.getHeight());
 
-    threadPool.setJobFunc(
-        [x0, x1, homo, &geom, &screen, &shader, tri, triangle, this](std::tuple<int, int> co) {
-            auto [is, ie] = co;
-            for (int j = is; j < ie; ++j) {
-                for (int i = x0; i < x1; ++i) {
-                    Vector3 bary = tri(Vector2(i, j));
-                    if (nearInRange(bary.x(), 0.0, 1.0) && nearInRange(bary.y(), 0.0, 1.0) &&
-                        nearInRange(bary.z(), 0.0, 1.0)) {
-                        Float depth = bary.x() * triangle.pA.z() + bary.y() * triangle.pB.z() +
-                                      bary.z() * triangle.pC.z();
-                        if (this->getDepth(i, j) > depth)
-                            continue;
-                        setDepth(i, j, depth);
-                        screen.setPixel(i, j, shader(bary, homo, geom, depth));
-                    }
-                }
+    for (int j = y0; j < y1; ++j) {
+        for (int i = x0; i < x1; ++i) {
+            Vector3 bary = tri(Vector2(i, j));
+            if (nearInRange(bary.x(), 0.0, 1.0) && nearInRange(bary.y(), 0.0, 1.0) &&
+                nearInRange(bary.z(), 0.0, 1.0)) {
+                Float depth = bary.x() * triangle.pA.z() + bary.y() * triangle.pB.z() +
+                              bary.z() * triangle.pC.z();
+                if (zBuffer.get(i, j) > depth)
+                    continue;
+                zBuffer.set(i, j, depth);
+                fragmentJobBuffer[j * screen.getWidth() + i] = { i, j, bary, homo, geom, depth };
             }
-        });
-
-    int size = (y1 - y0) / THREAD_NUM;
-    for (int i = 0; i < THREAD_NUM; ++i) {
-        if (i == THREAD_NUM - 1) {
-            threadPool.addJob(std::make_tuple(y0 + size * i, y1));
-        } else {
-            threadPool.addJob(std::make_tuple(y0 + size * i, y0 + size * (i + 1)));
         }
     }
-    threadPool.flush(THREAD_NUM);
 }
 
-Vector3 ZCPURenderer::shadeSingleShadedTriangle(const Vector3& bary, const PlainTriangle& tri) {
+Vector3 ZCPURenderer::shadePlainTriangle(const Vector3& bary, const PlainTriangle& tri) {
     Vector3 pixel = scene.lightSystem.ambientIntensity * tri.material.ambient;
-    Vector3 normal = tri.normal(Vector3()).normalized();
+    Vector3 normal = tri.normal(Vector3());
     Vector3 hit = tri.vA * bary.x() + tri.vB * bary.y() + tri.vC * bary.z();
 
-    for (auto& [lid, l] : scene.lightSystem.lights) {
-        if (auto light = std::get_if<DirectionalLight>(&l)) {
-            Float w = 1.0f;
-            Vector3 shadowVec = hit.transformed(lightMvp.at(lid), w);
-            Float dd = -(shadowVec.z() - near) / (near - far);
-
-            Image* shadowMap = scene.textures.get(shadowMaps.at(lid));
-            Float d = shadowMap->getPixel(shadowVec.x(), shadowVec.y()).z();
-            if (fabs(d - dd) < 0.01) {
-                Float x = std::max(0.0f, light->v.dot(normal));
-                pixel += light->intensity * (x * tri.material.diffuse);
-            }
+    for (auto& [lightId, l] : scene.lightSystem.lights) {
+        Vector3 lightV;
+        Float intensity;
+        unwrapLight(l, hit, lightV, intensity);
+        if (shadowBuffer.shadowTest(lightId, hit)) {
+            Float lam = std::max(0.0f, lightV.dot(normal));
+            pixel += intensity * (lam * tri.material.diffuse);
         }
     }
     return pixel;
 }
 
-Vector3 ZCPURenderer::shadeTriangle(const Vector3& bary, const Triangle& tri, const Vector3& homo) {
-    Float w = 1.0f;
-    Vector3 normal = tri.vA.normal * bary.x() + tri.vB.normal * bary.y() + tri.vC.normal * bary.z();
+void ZCPURenderer::unwrapLight(const Light& light, const Vector3& hit, Vector3& v,
+                               Float& intensity) {
+    for (auto& [_, l] : scene.lightSystem.lights) {
+        if (auto light = std::get_if<DirectionalLight>(&l)) {
+            v = light->v;
+            intensity = light->intensity;
+        } else if (auto light = std::get_if<PointLight>(&l)) {
+            v = (light->pos - hit).normalized();
+            intensity = light->intensity / (light->pos - hit).norm();
+        } else if (auto light = std::get_if<AreaLight>(&l)) {
+            v = (light->pos - hit).normalized();
+            intensity = light->intensity / (light->pos - hit).norm();
+        }
+    }
+}
 
+Vector3 ZCPURenderer::shadeTriangle(const Vector3& bary, const Triangle& tri, const Vector3& homo) {
+    Vector3 normal = tri.vA.normal * bary.x() + tri.vB.normal * bary.y() + tri.vC.normal * bary.z();
     Vector3 hit = tri.vA.pos * bary.x() + tri.vB.pos * bary.y() + tri.vC.pos * bary.z();
     Vector3 e = (scene.camera.e - hit).normalized();
+    // Perspective correction
+    Vector2 uv = tri.vA.tex * bary.x() / homo.x() + tri.vB.tex * bary.y() / homo.y() +
+                 tri.vC.tex * bary.z() / homo.z();
+    uv /= (bary.x() * (1 / homo.x()) + bary.y() * (1 / homo.y()) + bary.z() * (1 / homo.z()));
+
     Vector3 diffuse;
     if (tri.texture) {
-        // Perspective correction
-        Vector2 uv = tri.vA.tex * bary.x() / homo.x() + tri.vB.tex * bary.y() / homo.y() +
-                     tri.vC.tex * bary.z() / homo.z();
-        uv /= (bary.x() * (1 / homo.x()) + bary.y() * (1 / homo.y()) + bary.z() * (1 / homo.z()));
-        diffuse = sampleBilinear(*scene.textures.get(tri.texture), uv);
-        /*
-                // Normal mapping
-                Vector3 deltaPos1 = tri.vB.pos - tri.vA.pos;
-                Vector3 deltaPos2 = tri.vC.pos - tri.vA.pos;
-
-                Vector2 deltaUV1 = tri.vB.tex - tri.vA.tex;
-                Vector2 deltaUV2 = tri.vC.tex - tri.vA.tex;
-
-                float r = 1.0f / (deltaUV1.x() * deltaUV2.y() - deltaUV1.y() * deltaUV2.x());
-                Vector3 tangent = (deltaPos1 * deltaUV2.y() - deltaPos2 * deltaUV1.y()) * r;
-                tangent.normalize();
-                Vector3 bitangent = (deltaPos2 * deltaUV1.x() - deltaPos1 * deltaUV2.x()) * r;
-                bitangent.normalize();
-
-                Matrix tbn = Matrix(3, 3,
-                                    { tangent[0], bitangent[0], normal[0], tangent[1], bitangent[1],
-                                      normal[1], tangent[2], bitangent[2], normal[2] });
-                Vector3 nn = sampleBilinear(*scene.textures.get(tri.normalMap), uv);
-                nn = nn * 2.0f - Vector3(1.0f, 1.0f, 1.0f);
-                normal = tbn.mul<Vector3>(nn);*/
+        diffuse = sampleBilinear(*scene.textures.get(tri.texture), uv, false);
     } else {
         diffuse = tri.material.diffuse;
     }
+
+    // Normal mapping
+    if (tri.normalMap) {
+        Vector3 deltaPos1 = tri.vB.pos - tri.vA.pos;
+        Vector3 deltaPos2 = tri.vC.pos - tri.vA.pos;
+
+        Vector2 deltaUV1 = tri.vB.tex - tri.vA.tex;
+        Vector2 deltaUV2 = tri.vC.tex - tri.vA.tex;
+
+        float r = 1.0f / (deltaUV1.x() * deltaUV2.y() - deltaUV1.y() * deltaUV2.x());
+        Vector3 tangent = (deltaPos1 * deltaUV2.y() - deltaPos2 * deltaUV1.y()) * r;
+        tangent.normalize();
+        Vector3 bitangent = (deltaPos2 * deltaUV1.x() - deltaPos1 * deltaUV2.x()) * r;
+        bitangent.normalize();
+
+        Matrix tbn = Matrix(3, 3,
+                            { tangent[0], bitangent[0], normal[0], tangent[1], bitangent[1],
+                              normal[1], tangent[2], bitangent[2], normal[2] });
+        Vector3 nn = sampleBilinear(*scene.textures.get(tri.normalMap), uv);
+        nn = nn * 2.0f - Vector3(1.0f, 1.0f, 1.0f);
+        normal = tbn.mul<Vector3>(nn);
+    }
+
     Vector3 pixel = scene.lightSystem.ambientIntensity * diffuse;
-
-    for (auto& [lid, l] : scene.lightSystem.lights) {
-        if (auto light = std::get_if<DirectionalLight>(&l)) {
-            Vector3 shadowVec = hit.transformed(lightMvp.at(lid), w);
-            Float dd = -(shadowVec.z() - near) / (near - far);
-            Image* shadowMap = scene.textures.get(shadowMaps.at(lid));
-            Float d = shadowMap->getPixel(shadowVec.x(), shadowVec.y()).z();
-            if (fabs(d - dd) < 0.01) {
-                Vector3 h = (e + light->v).normalized();
-
-                Float x = std::max(0.0f, light->v.dot(normal));
-                Float x2 = std::max(0.0f, h.dot(normal));
-                pixel += light->intensity *
-                         (x * diffuse + pow(x2, tri.material.phong) * tri.material.specular);
-            }
+    for (auto& [lightId, l] : scene.lightSystem.lights) {
+        Vector3 lightV;
+        Float intensity;
+        unwrapLight(l, hit, lightV, intensity);
+        if (shadowBuffer.shadowTest(lightId, hit)) {
+            Vector3 h = (e + lightV).normalized();
+            Float specular = std::max(0.0f, lightV.dot(normal));
+            Float phong = std::max(0.0f, h.dot(normal));
+            pixel += intensity *
+                     (specular * diffuse + pow(phong, tri.material.phong) * tri.material.specular);
         }
     }
     return pixel;

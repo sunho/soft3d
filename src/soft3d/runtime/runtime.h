@@ -6,7 +6,7 @@
 #include <chrono>
 #include <optional>
 
-enum class Backend { RTCPU, ZCPU, RTGL };
+enum class Backend { RTCPU, ZCPU };
 
 struct AAProfile {
     Sequence1 filter;

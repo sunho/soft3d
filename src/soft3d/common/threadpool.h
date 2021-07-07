@@ -29,6 +29,18 @@ struct LockFreeJobStack {
         }
     }
 
+    T* allocate(int n) {
+        T* newTop;
+        while (true) {
+            T* oldTop = top.load(std::memory_order_relaxed);
+            newTop = oldTop - n;
+            if (top.compare_exchange_weak(oldTop, newTop)) {
+                break;
+            }
+        }
+        return newTop;
+    }
+
     std::optional<T> pop() {
         while (true) {
             T* oldTop = top.load(std::memory_order_relaxed);
@@ -83,6 +95,10 @@ struct ThreadPool {
         jobStack.push(job);
         ++nextPushIdx;
         nextPushIdx %= living;
+    }
+
+    T* allocJobBuffer(int n) {
+        return jobStack.allocate(n);
     }
 
     void flush(size_t threadNum) {

@@ -35,7 +35,7 @@ void RTCPURenderer::renderPixel(const Vector2& pos, Image& screen) {
         for (auto& sample : jittered_) {
             Vector2 pos2 = pos + sample;
             const Ray ray = scene.camera.generateRay(pos2, screen);
-            pixel += rayColor(ray, 0.0, INF, jittered) / (conf.distSampleNum * conf.distSampleNum);
+            pixel += rayColor(ray, 0.0f, INF, jittered) / (conf.distSampleNum * conf.distSampleNum);
         }
         screen.setPixel(pos, pixel);
     }
@@ -80,8 +80,6 @@ Vector3 RTCPURenderer::rayColor(Ray ray, Float t0, Float t1, const std::vector<V
     } else {
         if (scene.environmentMap) {
             Vector2 uv = convertSphereTexcoord(ray.dir);
-            uv.x() = fmod(uv.x() + 0.25, 1.0);
-            uv.y() = fmin(uv.y(), 1.0);
             return sampleBilinear(*scene.textures.get(scene.environmentMap), uv, false);
         }
         return Vector3(0.0f, 0.0f, 0.0f);
@@ -194,15 +192,14 @@ Vector3 RTCPURenderer::shadeDielectric(Ray ray, RayHit hit, const Material& shad
                                        const std::vector<Vector2>& jittered, int depth) {
     hit.normal.normalize();
     ray.dir.normalize();
-    Vector3 dir = ray.dir;
     Vector3 r =
         (ray.dir - 2 * (ray.dir.dot(hit.normal)) * hit.normal).normalized();  // reflection ray
-    Vector3 k;                      // intensity approximated
-    Vector3 t;                      // refraction ray
-    Float c;                        // cos theta
-    if (dir.dot(hit.normal) < 0) {  // backside
+    Vector3 k;                          // intensity approximated
+    Vector3 t;                          // refraction ray
+    Float c;                            // cos theta
+    if (ray.dir.dot(hit.normal) < 0) {  // backside
         refractRay(ray, hit.normal, *shade.refractIndex, t);
-        c = -dir.dot(hit.normal);
+        c = -ray.dir.dot(hit.normal);
         k = Vector3(1.0, 1.0, 1.0);
     } else {
         Float kx = exp(-shade.refractReflectance.x() * hit.time);

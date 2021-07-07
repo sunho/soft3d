@@ -238,7 +238,7 @@ struct GVector3 final : public GVector<GVector3<F>, F, 3> {
     }
 
     GVector4<F> expand(F w) const;
-    GVector3<F> transformed(const GMatrix<F>& transform, F& w) const;
+    GVector4<F> transformed(const GMatrix<F>& transform, const F& w) const;
 };
 
 template <typename F>
@@ -280,6 +280,13 @@ struct GVector4 final : public GVector<GVector4<F>, F, 4> {
 
     GVector3<F> trunc() const {
         return GVector3<F>({ this->data[0], this->data[1], this->data[2] });
+    }
+
+    GVector3<F> homoDiv() const {
+        if (w() == 0.0f) {
+            return GVector3<F>({ this->data[0], this->data[1], this->data[2] });
+        }
+        return GVector3<F>({ this->data[0] / w(), this->data[1] / w(), this->data[2] / w() });
     }
 };
 
@@ -414,13 +421,8 @@ struct GMatrix {
 };
 
 template <typename F>
-GVector3<F> GVector3<F>::transformed(const GMatrix<F>& transform, F& w) const {
-    GVector4<F> res = transform.template mul<GVector4<F>>(expand(w));
-    if (w != 0.0) {
-        w = res.w();
-        res /= res.w();
-    }
-    return res.trunc();
+GVector4<F> GVector3<F>::transformed(const GMatrix<F>& transform, const F& w) const {
+    return transform.template mul<GVector4<F>>(expand(w));
 }
 
 using Float = float;
@@ -431,6 +433,7 @@ using Matrix = GMatrix<Float>;
 
 constexpr Float PI = 3.14159265358979323846f;
 static const Float INF = 1.0f / 0.0f;
+static const Float NINF = -1.0f / 0.0f;
 
 struct Basis {
     Basis() = default;

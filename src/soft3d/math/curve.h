@@ -180,7 +180,10 @@ struct Triangle3 {
     }
 
     Triangle3 transformed(const Matrix& mat, Vector3& homo) const {
-        return Triangle3(pA.transformed(mat, homo.x()), pB.transformed(mat, homo.y()),
-                         pC.transformed(mat, homo.z()));
+        Vector4 a = pA.transformed(mat, 1.0f);
+        Vector4 b = pB.transformed(mat, 1.0f);
+        Vector4 c = pC.transformed(mat, 1.0f);
+        homo = Vector3(a.w(), b.w(), c.w());
+        return Triangle3(a.homoDiv(), b.homoDiv(), c.homoDiv());
     }
 };
