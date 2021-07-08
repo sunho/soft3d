@@ -7,6 +7,6 @@
 #include "3ddemo.h"
 
 int main() {
-    RUN3D(ObjLoad)
+    RUN2D(DrawSpline)
     return 0;
 }

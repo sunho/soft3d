@@ -109,7 +109,7 @@ struct ObjLoad : public App {
             std::move(DirectionalLight{ 1.2, Vector3(-0.5, 0.5, 0.5).normalized() }));*/
         lightSystem.lights.move(std::move(AreaLight{
             1.2, Vector3(-0.05, 0.35, 1.0), Vector3(0.0, 0.1, 0.0), Vector3(0.1, 0.0, 0.0) }));
-        lightSystem.lights.move(std::move(DirectionalLight{ 0.6, Vector3(0.0, 0.0, 1.0) }));
+        lightSystem.lights.move(std::move(DirectionalLight{ 0.4, Vector3(0.0, 0.0, 1.0) }));
         scene.lightSystem = lightSystem;
 
         Material material1 = { .diffuse = Vector3(0.5, 1.0, 0.5),

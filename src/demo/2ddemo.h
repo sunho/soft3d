@@ -133,9 +133,9 @@ struct DrawTransformedTriangle : public PrimitiveDraw {
         Vector2 a{ 5.0, 2.0 }, b{ 600.0, 300.0 }, c{ 200, 200 };
         transform = scale2(0.6, 0.6) * shearY2(0.5) * shearX2(-0.5) * rotate2(deg2rad(deg));
 
-        a = transform.mul<Vector2>(a);
-        b = transform.mul<Vector2>(b);
-        c = transform.mul<Vector2>(c);
+        a = transform * a;
+        b = transform * b;
+        c = transform * c;
         tri = Triangle2(a, b, c);
     }
 
@@ -229,6 +229,22 @@ struct FilterSeq : public Demo2D {
             Triangle2 tri(p0, p1, p2);
             tri.draw(screen, Vector3(0xf59b5b), Vector3(1.0, 1.0, 1.0), Vector3(0xf59b5b));
         }
+    }
+};
+
+struct DrawSpline : public Demo2D {
+    CubicSpline spline;
+    DrawSpline() {
+        spline.controls = { { Vector2(50.0, 50.0), Vector2(0.0, 100.0), Vector2(0.0, -10.0), 0.0 },
+                            { Vector2(250.0, 250.0), Vector2(50.0, 10.0), Vector2(100.0, 0.0),
+                              0.8 },
+                            { Vector2(250.0, 150.0), Vector2(0.0, 0.0), Vector2(0.0, 0.0), 1.0 } };
+    }
+    ~DrawSpline() {
+    }
+
+    void render(Image& screen, KeyboardState& key) override {
+        spline.draw(screen, Vector3(0xf59b5b), Vector3(0x92daf0), 0.0001);
     }
 };
 

@@ -25,7 +25,7 @@ void ShadowBuffer::addBakedShadow(int lightId, const Matrix& mvp, const TextureI
 }
 
 bool ShadowBuffer::shadowTest(int lightId, const Vector3& pos) {
-    Vector3 shadowVec = pos.transformed(lightMvp.at(lightId), 1.0f).homoDiv();
+    Vector3 shadowVec = (lightMvp.at(lightId) * pos.expand(1.0f)).homoDiv();
     Float dd = -(shadowVec.z() - near) / (near - far);
     Image* shadowMap = scene.textures.get(shadowMaps.at(lightId));
     Float d = shadowMap->getPixel(shadowVec.x(), shadowVec.y()).z();
@@ -210,7 +210,7 @@ Vector3 ZCPURenderer::shadeTriangle(const Vector3& bary, const Triangle& tri, co
                               normal[1], tangent[2], bitangent[2], normal[2] });
         Vector3 nn = sampleBilinear(*scene.textures.get(tri.normalMap), uv);
         nn = nn * 2.0f - Vector3(1.0f, 1.0f, 1.0f);
-        normal = tbn.mul<Vector3>(nn);
+        normal = tbn * nn;
     }
 
     Vector3 pixel = scene.lightSystem.ambientIntensity * diffuse;

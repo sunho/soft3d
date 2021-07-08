@@ -180,10 +180,115 @@ struct Triangle3 {
     }
 
     Triangle3 transformed(const Matrix& mat, Vector3& homo) const {
-        Vector4 a = pA.transformed(mat, 1.0f);
-        Vector4 b = pB.transformed(mat, 1.0f);
-        Vector4 c = pC.transformed(mat, 1.0f);
+        Vector4 a = mat * pA.expand(1.0f);
+        Vector4 b = mat * pB.expand(1.0f);
+        Vector4 c = mat * pC.expand(1.0f);
         homo = Vector3(a.w(), b.w(), c.w());
         return Triangle3(a.homoDiv(), b.homoDiv(), c.homoDiv());
+    }
+};
+
+// We define parametric function for points
+// parametrization = f(x) -> f(g(u))
+// usually "reparametrize" by arc length
+// arclength of parametric function is s = \int ||f'||dt
+// arc length parametization when |df(s)/ds| = c
+// in this mode, we should be able t solve t given s
+// then f(t) = f(t(s))
+// u = free paramter s = arc length parameter
+//
+// canonical form:
+// p = \sum c_i b_i(t)
+// in polynomial b_i = t^i
+// It's linear comination of b_i
+// we set up linear system by propeties at the endpoints
+// a = c here
+// e.g. line
+// p_0 = [1 0] a_0
+// p_1 = [1 1] a_1
+// we call coeff matrix C (constraint matrix)
+// p = Ca
+// then
+// f(u) = u B p
+// where B is C^-1 (basis matrix)
+struct Spline {
+    virtual ~Spline() {
+    }
+    virtual Vector2 sample(Float s) = 0;
+    void draw(Image& screen, Vector3 start, Vector3 end, Float step) {
+        for (Float s = 0; s < 1.0f; s += step) {
+            Vector2 pos = sample(s);
+            Vector3 color = start * (1 - s) + s * end;
+            screen.setPixel(pos, color);
+        }
+    }
+};
+
+struct KnotControl {
+    Float x;
+    Float y;
+    Float knot;
+};
+
+// f_i(u) = (1-u)p_1+up_2
+struct KnotSpline : public Spline {
+    std::vector<KnotControl> controls;
+    KnotSpline() {
+    }
+    ~KnotSpline() {
+    }
+
+    Vector2 sample(Float s) override {
+        for (int i = controls.size() - 2; i >= 0; --i) {
+            if (s > controls[i].knot) {
+                Float u = (s - controls[i].knot) / (controls[i + 1].knot - controls[i].knot);
+                Vector2 p1(controls[i].x, controls[i].y);
+                Vector2 p2(controls[i + 1].x, controls[i + 1].y);
+                return (1 - u) * p1 + u * p2;
+            }
+        }
+        return Vector2(0, 0);
+    }
+};
+
+struct CubicControl {
+    Vector2 pos;
+    Vector2 d;
+    Vector2 dd;
+    Float knot;
+};
+
+// f(x) = canonical
+// find derivate and substitute
+// f(0) = a_0
+// f'(0) = a_1
+// f''(0) = 2 * a_2
+// f(1) = a_0 + a_1 + a_2 + a_3
+// C = [1,0,0,0 ; 0,1,0,0 ; 0,0,2,0 ; 1,1,1,1]
+// B = [1,0,0,0 ; 0,1,0,0 ; 0,0,0.5,0 ; -1,-1,-0.5,1]
+struct CubicSpline : public Spline {
+    Matrix basis{ Matrix(4, 4,
+                         { 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.0f,
+                           -1.0f, -1.0f, -0.5f, 1.0f }) };
+    std::vector<CubicControl> controls;
+    CubicSpline() = default;
+    ~CubicSpline() {
+    }
+
+    Vector2 sample(Float s) override {
+        for (int i = controls.size() - 2; i >= 0; --i) {
+            if (s > controls[i].knot) {
+                Float u = (s - controls[i].knot) / (controls[i + 1].knot - controls[i].knot);
+                Vector4 uVec = Vector4(1.0, u, u * u, pow(u, 3.0));
+                Vector4 ux(controls[i].pos.x(), controls[i].d.x(), controls[i].dd.x(),
+                           controls[i + 1].pos.x());
+                Vector4 uy(controls[i].pos.y(), controls[i].d.y(), controls[i].dd.y(),
+                           controls[i + 1].pos.y());
+                Float x = uVec.dot(basis * ux);
+                Float y = uVec.dot(basis * uy);
+                return Vector2(x, y);
+            }
+        }
+        return Vector2(0, 0);
     }
 };

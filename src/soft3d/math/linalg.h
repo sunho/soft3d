@@ -238,7 +238,6 @@ struct GVector3 final : public GVector<GVector3<F>, F, 3> {
     }
 
     GVector4<F> expand(F w) const;
-    GVector4<F> transformed(const GMatrix<F>& transform, const F& w) const;
 };
 
 template <typename F>
@@ -333,6 +332,11 @@ struct GMatrixIndex {
 
 using mi = GMatrixIndex;
 
+using Float = float;
+using Vector4 = GVector4<Float>;
+using Vector3 = GVector3<Float>;
+using Vector2 = GVector2<Float>;
+
 template <typename F>
 struct GMatrix {
     GMatrix() = default;
@@ -366,20 +370,6 @@ struct GMatrix {
         return data[index];
     }
 
-    template <typename Vec>
-    Vec sliceColumnV(size_t index) const {
-        std::vector<F> l;
-        for (int i = 0; i < height; ++i) {
-            l.push_back(data[i * width + index]);
-        }
-        return Vec(l);
-    }
-
-    template <typename Vec>
-    Vec sliceRowV(size_t index) const {
-        return Vec(data.data() + index * height);
-    }
-
     GMatrix<F> operator*(const GMatrix<F>& other) const {
         assert(width == other.height);
         GMatrix<F> out(height, other.width);
@@ -388,17 +378,6 @@ struct GMatrix {
                 for (size_t t = 0; t < width; ++t) {
                     out[mi{ i, j }] += (*this)[mi{ i, t }] * other[mi{ t, j }];
                 }
-            }
-        }
-        return out;
-    }
-
-    template <typename OVec, typename IVec>
-    OVec mul(const IVec& other) const {
-        OVec out;
-        for (size_t i = 0; i < height; ++i) {
-            for (size_t t = 0; t < width; ++t) {
-                out[i] += (*this)[mi{ i, t }] * other[t];
             }
         }
         return out;
@@ -414,21 +393,85 @@ struct GMatrix {
         return out;
     }
 
+#define VECTOR_OP_IMPL(Vec, Num)                                                                   \
+    Vec operator*(const Vec& other) const {                                                        \
+        return mul<Vec>(other);                                                                    \
+    }                                                                                              \
+    static GMatrix<F> stackRowVector##Num(std::initializer_list<Vec> vecs) {                       \
+        return stackRowVectors<Vec, Num>(vecs);                                                    \
+    }                                                                                              \
+    static GMatrix<F> stackColVector##Num(std::initializer_list<Vec> vecs) {                       \
+        return stackColVectors<Vec, Num>(vecs);                                                    \
+    }                                                                                              \
+    Vec sliceColVector##Num(size_t index) const {                                                  \
+        return sliceColVector<Vec>(index);                                                         \
+    }                                                                                              \
+    Vec sliceRowVector##Num(size_t index) const {                                                  \
+        return sliceRowVector<Vec>(index);                                                         \
+    }
+
+    VECTOR_OP_IMPL(Vector2, 2)
+    VECTOR_OP_IMPL(Vector3, 3)
+    VECTOR_OP_IMPL(Vector4, 4)
+#undef VECTOR_OP_IMPL
+
   private:
+    template <typename OVec, typename IVec>
+    OVec mul(const IVec& other) const {
+        OVec out;
+        for (size_t i = 0; i < height; ++i) {
+            for (size_t t = 0; t < width; ++t) {
+                out[i] += (*this)[mi{ i, t }] * other[t];
+            }
+        }
+        return out;
+    }
+
+    template <typename Vec, size_t Num>
+    static GMatrix<F> stackRowVectors(std::initializer_list<Vec> vecs) {
+        GMatrix<F> out(vecs.size(), Num);
+        size_t j = 0;
+        for (auto& vec : vecs) {
+            for (size_t i = 0; i < Num; ++i) {
+                out[mi{ i, j }] = vec[i];
+            }
+            ++j;
+        }
+        return out;
+    }
+
+    template <typename Vec, size_t Num>
+    static GMatrix<F> stackColVectors(const std::initializer_list<Vec> vecs) {
+        GMatrix<F> out(Num, vecs.size());
+        size_t i = 0;
+        for (auto& vec : vecs) {
+            for (size_t j = 0; j < Num; ++i) {
+                out[mi{ i, j }] = vec[j];
+            }
+            ++i;
+        }
+        return out;
+    }
+
+    template <typename Vec>
+    Vec sliceColVector(size_t index) const {
+        std::vector<F> l;
+        for (int i = 0; i < height; ++i) {
+            l.push_back(data[i * width + index]);
+        }
+        return Vec(l);
+    }
+
+    template <typename Vec>
+    Vec sliceRowVector(size_t index) const {
+        return Vec(data.data() + index * height);
+    }
+
     size_t width{ 0 };
     size_t height{ 0 };
     std::vector<F> data;
 };
 
-template <typename F>
-GVector4<F> GVector3<F>::transformed(const GMatrix<F>& transform, const F& w) const {
-    return transform.template mul<GVector4<F>>(expand(w));
-}
-
-using Float = float;
-using Vector4 = GVector4<Float>;
-using Vector3 = GVector3<Float>;
-using Vector2 = GVector2<Float>;
 using Matrix = GMatrix<Float>;
 
 constexpr Float PI = 3.14159265358979323846f;
@@ -438,9 +481,7 @@ static const Float NINF = -1.0f / 0.0f;
 struct Basis {
     Basis() = default;
     Basis(const Matrix& mat)
-        : u(mat.sliceColumnV<Vector3>(0))
-        , v(mat.sliceColumnV<Vector3>(1))
-        , w(mat.sliceColumnV<Vector3>(2)) {
+        : u(mat.sliceColVector3(0)), v(mat.sliceColVector3(1)), w(mat.sliceColVector3(2)) {
     }
     Vector3 u{ 1.0f, 0.0f, 0.0f };
     Vector3 v{ 0.0f, 1.0f, 0.0f };
