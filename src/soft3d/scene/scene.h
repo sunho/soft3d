@@ -62,7 +62,39 @@ struct AreaLight {
     Vector3 edge2;
 };
 
-using Light = std::variant<DirectionalLight, PointLight, AreaLight>;
+using LightData = std::variant<DirectionalLight, PointLight, AreaLight>;
+
+struct Light {
+    Light() = default;
+    Light(LightData&& data) : data(data) {
+    }
+
+    void unwrap(const Vector3& hit, Vector3& v, Float& intensity) {
+        if (auto light = std::get_if<DirectionalLight>(&data)) {
+            v = light->v;
+            intensity = light->intensity;
+        } else if (auto light = std::get_if<PointLight>(&data)) {
+            v = (light->pos - hit).normalized();
+            intensity = light->intensity / (light->pos - hit).norm2();
+        } else if (auto light = std::get_if<AreaLight>(&data)) {
+            v = (light->pos - hit).normalized();
+            intensity = light->intensity / (light->pos - hit).norm2();
+        }
+    }
+
+    template <typename T>
+    T* get() {
+        return std::get_if<T>(&data);
+    }
+
+    template <typename T>
+    const T* get() const {
+        return std::get_if<T>(&data);
+    }
+
+  private:
+    LightData data;
+};
 
 struct LightSystem {
     LightSystem() = default;

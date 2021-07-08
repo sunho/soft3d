@@ -69,7 +69,6 @@ struct ZCPURenderer : public Renderer {
 
     Vector3 shadePlainTriangle(const Vector3& bary, const PlainTriangle& tri);
     Vector3 shadeTriangle(const Vector3& bary, const Triangle& tri, const Vector3& homo);
-    void unwrapLight(const Light& light, const Vector3& hit, Vector3& v, Float& intensity);
 
     ZCPUConfig conf;
     Scene scene;

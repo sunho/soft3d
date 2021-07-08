@@ -49,17 +49,17 @@ Vector3 RTCPURenderer::rayColor(Ray ray, Float t0, Float t1, const std::vector<V
     }
     if (testRay(ray, t0, t1, hit)) {
         Material material;
-        if (auto sphere = std::get_if<PlainSphere>(hit.geom)) {
+        if (auto sphere = hit.geom->get<PlainSphere>()) {
             material = sphere->material;
-        } else if (auto triangle = std::get_if<PlainTriangle>(hit.geom)) {
+        } else if (auto triangle = hit.geom->get<PlainTriangle>()) {
             material = triangle->material;
-        } else if (auto sphere = std::get_if<Sphere>(hit.geom)) {
+        } else if (auto sphere = hit.geom->get<Sphere>()) {
             material = sphere->material;
             Vector2 uv = convertSphereTexcoord(hit.pos - sphere->center);
             Vector3 color = samplePoint(*scene.textures.get(sphere->texture), uv);
             material.diffuse = color;
             material.ambient = color;
-        } else if (auto triangle = std::get_if<Triangle>(hit.geom)) {
+        } else if (auto triangle = hit.geom->get<Triangle>()) {
             material = triangle->material;
             Vector3 bary = triangle->curve(hit.pos);
             Vector2 uv = triangle->vA.tex * bary.x() + triangle->vB.tex * bary.y() +
@@ -102,15 +102,7 @@ Vector3 RTCPURenderer::shadePhong(Ray ray, RayHit hit, const Material& shade,
     for (auto& [_, l] : scene.lightSystem.lights) {
         Vector3 lightV;
         Float intensity;
-        if (auto light = std::get_if<DirectionalLight>(&l)) {
-            lightV = light->v;
-            intensity = light->intensity;
-            shadeColor(lightV, intensity);
-        } else if (auto light = std::get_if<PointLight>(&l)) {
-            lightV = (light->pos - hit.pos).normalized();
-            intensity = light->intensity / (light->pos - hit.pos).norm();
-            shadeColor(lightV, intensity);
-        } else if (auto light = std::get_if<AreaLight>(&l)) {
+        if (auto light = l.get<AreaLight>()) {
             for (auto& sample : jittered) {
                 Float u = sample.x() / conf.distSampleNum;
                 Float v = sample.y() / conf.distSampleNum;
@@ -120,6 +112,9 @@ Vector3 RTCPURenderer::shadePhong(Ray ray, RayHit hit, const Material& shade,
                 intensity /= (conf.distSampleNum * conf.distSampleNum);
                 shadeColor(lightV, intensity);
             }
+        } else {
+            l.unwrap(hit.pos, lightV, intensity);
+            shadeColor(lightV, intensity);
         }
     }
 
@@ -237,26 +232,17 @@ bool RTCPURenderer::refractRay(Ray ray, Vector3 normal, Float index, Vector3& ou
 bool RTCPURenderer::testRay(Ray ray, Float t0, Float t1, RayHit& hit) {
     const auto testGeomFunc = [&](const Geometry* geom, Ray ray, Float t0, Float t1, RayHit& hit) {
         hit.geom = geom;
-        if (auto sphere = std::get_if<PlainSphere>(geom)) {
-            if (ray.isShadow && sphere->material.refractIndex) {
-                return false;
-            }
+        if (ray.isShadow && geom->material().refractIndex) {
+            return false;
+        }
+        if (auto sphere = geom->get<PlainSphere>()) {
             return testSphereRay(sphere->center, sphere->radius, ray, t0, t1, hit);
-        } else if (auto triangle = std::get_if<PlainTriangle>(geom)) {
-            if (ray.isShadow && triangle->material.refractIndex) {
-                return false;
-            }
+        } else if (auto triangle = geom->get<PlainTriangle>()) {
             return testTriangleRay(triangle->curve, ray, t0, t1, hit,
                                    !triangle->material.refractIndex);
-        } else if (auto sphere = std::get_if<Sphere>(geom)) {
-            if (ray.isShadow && sphere->material.refractIndex) {
-                return false;
-            }
+        } else if (auto sphere = geom->get<Sphere>()) {
             return testSphereRay(sphere->center, sphere->radius, ray, t0, t1, hit);
-        } else if (auto triangle = std::get_if<Triangle>(geom)) {
-            if (ray.isShadow && triangle->material.refractIndex) {
-                return false;
-            }
+        } else if (auto triangle = geom->get<Triangle>()) {
             return testTriangleRay(triangle->curve, ray, t0, t1, hit,
                                    !triangle->material.refractIndex);
         }

@@ -61,7 +61,7 @@ struct BvhTree {
     }
 
     void add(const Geometry& geom) {
-        leafs.push_back(std::make_pair(getBoundingRect(geom), geom));
+        leafs.push_back(std::make_pair(geom.boundingRect(), geom));
         dirty = true;
     }
 

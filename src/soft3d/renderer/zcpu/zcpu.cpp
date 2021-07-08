@@ -58,9 +58,9 @@ void ZCPURenderer::render(Image& screen) {
     const Matrix VPOV = scene.camera.VPOV(screen);
     Shader mainPass = [&](const Vector3& bary, const Vector3& homo, const Geometry& geom,
                           Float depth) {
-        if (auto triangle = std::get_if<PlainTriangle>(&geom)) {
+        if (auto triangle = geom.get<PlainTriangle>()) {
             return shadePlainTriangle(bary, *triangle);
-        } else if (auto triangle = std::get_if<Triangle>(&geom)) {
+        } else if (auto triangle = geom.get<Triangle>()) {
             return shadeTriangle(bary, *triangle, homo);
         }
     };
@@ -71,7 +71,7 @@ void ZCPURenderer::render(Image& screen) {
 void ZCPURenderer::populateShadowBuffer(Image& screen) {
     for (auto lightId : scene.lightSystem.lights.ids()) {
         Light* l = scene.lightSystem.lights.get(lightId);
-        if (auto light = std::get_if<DirectionalLight>(l)) {
+        if (auto light = l->get<DirectionalLight>()) {
             int texId = scene.textures.create(conf.shadowMapWidth, conf.shadowMapHeight);
             Basis basis;
             basis.w = light->v;
@@ -100,14 +100,17 @@ void ZCPURenderer::renderPass(Image& screen, const Matrix& mvp, const Shader& sh
     });
     // Push fragment jobs into threadPool
     for (auto& [_, geom] : scene.geoms) {
-        if (auto triangle = std::get_if<PlainTriangle>(&geom)) {
-            Vector3 h;
-            Triangle3 projected = triangle->curve.transformed(mvp, h);
-            addDrawTriangleJob(screen, projected, *triangle, h, shader);
-        } else if (auto triangle = std::get_if<Triangle>(&geom)) {
-            Vector3 h;
-            Triangle3 projected = triangle->curve.transformed(mvp, h);
-            addDrawTriangleJob(screen, projected, *triangle, h, shader);
+        Vector3 h;
+        if (auto triangle = geom.get<PlainTriangle>()) {
+            if (triangle->curve.sameFace(scene.camera.basis.w)) {
+                Triangle3 projected = triangle->curve.transformed(mvp, h);
+                addDrawTriangleJob(screen, projected, geom, h, shader);
+            }
+        } else if (auto triangle = geom.get<Triangle>()) {
+            if (triangle->curve.sameFace(scene.camera.basis.w)) {
+                Triangle3 projected = triangle->curve.transformed(mvp, h);
+                addDrawTriangleJob(screen, projected, geom, h, shader);
+            }
         }
     }
     // Do all the works!
@@ -146,33 +149,20 @@ Vector3 ZCPURenderer::shadePlainTriangle(const Vector3& bary, const PlainTriangl
     Vector3 pixel = scene.lightSystem.ambientIntensity * tri.material.ambient;
     Vector3 normal = tri.normal(Vector3());
     Vector3 hit = tri.vA * bary.x() + tri.vB * bary.y() + tri.vC * bary.z();
-
+    Vector3 e = (scene.camera.e - hit).normalized();
     for (auto& [lightId, l] : scene.lightSystem.lights) {
         Vector3 lightV;
         Float intensity;
-        unwrapLight(l, hit, lightV, intensity);
-        if (shadowBuffer.shadowTest(lightId, hit)) {
-            Float lam = std::max(0.0f, lightV.dot(normal));
-            pixel += intensity * (lam * tri.material.diffuse);
-        }
+        l.unwrap(hit, lightV, intensity);
+        // if (shadowBuffer.shadowTest(lightId, hit)) {
+        Vector3 h = (e + lightV).normalized();
+        Float specular = std::max(0.0f, lightV.dot(normal));
+        Float phong = std::max(0.0f, h.dot(normal));
+        pixel += intensity * (specular * tri.material.diffuse +
+                              pow(phong, tri.material.phong) * tri.material.specular);
+        //}
     }
     return pixel;
-}
-
-void ZCPURenderer::unwrapLight(const Light& light, const Vector3& hit, Vector3& v,
-                               Float& intensity) {
-    for (auto& [_, l] : scene.lightSystem.lights) {
-        if (auto light = std::get_if<DirectionalLight>(&l)) {
-            v = light->v;
-            intensity = light->intensity;
-        } else if (auto light = std::get_if<PointLight>(&l)) {
-            v = (light->pos - hit).normalized();
-            intensity = light->intensity / (light->pos - hit).norm();
-        } else if (auto light = std::get_if<AreaLight>(&l)) {
-            v = (light->pos - hit).normalized();
-            intensity = light->intensity / (light->pos - hit).norm();
-        }
-    }
 }
 
 Vector3 ZCPURenderer::shadeTriangle(const Vector3& bary, const Triangle& tri, const Vector3& homo) {
@@ -186,7 +176,7 @@ Vector3 ZCPURenderer::shadeTriangle(const Vector3& bary, const Triangle& tri, co
 
     Vector3 diffuse;
     if (tri.texture) {
-        diffuse = sampleBilinear(*scene.textures.get(tri.texture), uv, false);
+        diffuse = sampleBilinear(*scene.textures.get(tri.texture), uv, true);
     } else {
         diffuse = tri.material.diffuse;
     }
@@ -217,14 +207,14 @@ Vector3 ZCPURenderer::shadeTriangle(const Vector3& bary, const Triangle& tri, co
     for (auto& [lightId, l] : scene.lightSystem.lights) {
         Vector3 lightV;
         Float intensity;
-        unwrapLight(l, hit, lightV, intensity);
-        if (shadowBuffer.shadowTest(lightId, hit)) {
-            Vector3 h = (e + lightV).normalized();
-            Float specular = std::max(0.0f, lightV.dot(normal));
-            Float phong = std::max(0.0f, h.dot(normal));
-            pixel += intensity *
-                     (specular * diffuse + pow(phong, tri.material.phong) * tri.material.specular);
-        }
+        l.unwrap(hit, lightV, intensity);
+        // if (shadowBuffer.shadowTest(lightId, hit)) {
+        Vector3 h = (e + lightV).normalized();
+        Float specular = std::max(0.0f, lightV.dot(normal));
+        Float phong = std::max(0.0f, h.dot(normal));
+        pixel += intensity *
+                 (specular * diffuse + pow(phong, tri.material.phong) * tri.material.specular);
+        //}
     }
     return pixel;
 }

@@ -14,7 +14,7 @@ static RuntimeConfig engineConf = { .width = 500,
                                     /*  .aaProfile = AAProfile {
                                           .filter = boxFilter1(1),
                                       },*/
-                                    .renderer = Backend::RTCPU };
+                                    .renderer = Backend::ZCPU };
 
 void instantiateMesh(Scene& scene, Model& model, int i, Material material, std::string tex) {
     TextureId texId = 0;
@@ -24,7 +24,7 @@ void instantiateMesh(Scene& scene, Model& model, int i, Material material, std::
     }
     auto triangles = model.generateTriangles(i, material, texId);
     for (auto& tri : triangles) {
-        scene.geoms.add(tri);
+        scene.geoms.add(Geometry{ tri });
     }
 }
 
@@ -44,8 +44,8 @@ struct AnimeLoad : public App {
         lightSystem.ambientIntensity = 0.5;
         /*lightSystem.lights.move(
             std::move(DirectionalLight{ 1.2, Vector3(-0.5, 0.5, 0.5).normalized() }));*/
-        lightSystem.lights.move(std::move(AreaLight{
-            0.7, Vector3(-0.05, 0.6, 1.0), Vector3(0.0, 0.1, 0.0), Vector3(0.1, 0.0, 0.0) }));
+        lightSystem.lights.move({ AreaLight{ 0.7, Vector3(-0.05, 0.6, 1.0), Vector3(0.0, 0.1, 0.0),
+                                             Vector3(0.1, 0.0, 0.0) } });
         scene.lightSystem = lightSystem;
 
         Material material1 = { .diffuse = Vector3(0.5, 1.0, 0.5),
@@ -68,15 +68,15 @@ struct AnimeLoad : public App {
         Material materialglass = { .refractIndex = 1.5f,
                                    .refractReflectance = Vector3(0.0, 0.0, -0.2) };
         scene.environmentMap = scene.textures.move(loadTexture("resources/env.jpg"));
-        scene.geoms.add(PlainSphere(Vector3(0.3, 0.15, 0.4), 0.15, material2));
-        scene.geoms.add(PlainSphere(Vector3(-0.4, 0.3, 0.4), 0.2, materialglass));
+        scene.geoms.add({ PlainSphere(Vector3(0.3, 0.15, 0.4), 0.15, material2) });
+        scene.geoms.add({ PlainSphere(Vector3(-0.4, 0.3, 0.4), 0.2, materialglass) });
         // scene.geoms.add(PlainSphere(Vector3(0.0, 0.75, 0.5), 0.3, materialglass));
 
         Float sz = -0.3;
-        scene.geoms.add(PlainTriangle(Vector3(-2.0, 2.0, sz), Vector3(-2.0, -2.0, sz),
-                                      Vector3(2.0, 2.0, sz), materialwall));
-        scene.geoms.add(PlainTriangle(Vector3(-2.0, -2.0, sz), Vector3(2.0, -2.0, sz),
-                                      Vector3(2.0, 2.0, sz), materialwall));
+        scene.geoms.add({ PlainTriangle(Vector3(-2.0, 2.0, sz), Vector3(-2.0, -2.0, sz),
+                                        Vector3(2.0, 2.0, sz), materialwall) });
+        scene.geoms.add({ PlainTriangle(Vector3(-2.0, -2.0, sz), Vector3(2.0, -2.0, sz),
+                                        Vector3(2.0, 2.0, sz), materialwall) });
 
         Model model = loadObj("resources/anime.obj");
         Model model2 = loadObj("resources/glass.obj");
@@ -107,9 +107,9 @@ struct ObjLoad : public App {
         lightSystem.ambientIntensity = 0.3;
         /*lightSystem.lights.move(
             std::move(DirectionalLight{ 1.2, Vector3(-0.5, 0.5, 0.5).normalized() }));*/
-        lightSystem.lights.move(std::move(AreaLight{
-            1.2, Vector3(-0.05, 0.35, 1.0), Vector3(0.0, 0.1, 0.0), Vector3(0.1, 0.0, 0.0) }));
-        lightSystem.lights.move(std::move(DirectionalLight{ 0.4, Vector3(0.0, 0.0, 1.0) }));
+        lightSystem.lights.move({ AreaLight{ 1.2, Vector3(-0.05, 0.35, 1.0), Vector3(0.0, 0.1, 0.0),
+                                             Vector3(0.1, 0.0, 0.0) } });
+        lightSystem.lights.move({ DirectionalLight{ 0.4, Vector3(0.0, 0.0, 1.0) } });
         scene.lightSystem = lightSystem;
 
         Material material1 = { .diffuse = Vector3(0.5, 1.0, 0.5),
@@ -126,12 +126,12 @@ struct ObjLoad : public App {
         Material materialglass = { .refractIndex = 1.5f,
                                    .refractReflectance = Vector3(0.0, 0.0, -0.3) };
 
-        scene.geoms.add(PlainSphere(Vector3(0.0, 0.15, 0.7), 0.1, materialglass));
+        scene.geoms.add({ PlainSphere(Vector3(0.0, 0.15, 0.7), 0.1, materialglass) });
         Float sz = -0.3;
-        scene.geoms.add(PlainTriangle(Vector3(-1.0, 2.0, sz), Vector3(-1.0, -1.0, sz),
-                                      Vector3(2.0, 2.0, sz), materialwall));
-        scene.geoms.add(PlainTriangle(Vector3(-1.0, -1.0, sz), Vector3(1.0, -2.0, sz),
-                                      Vector3(2.0, 2.0, sz), materialwall));
+        scene.geoms.add({ PlainTriangle(Vector3(-1.0, 2.0, sz), Vector3(-1.0, -1.0, sz),
+                                        Vector3(2.0, 2.0, sz), materialwall) });
+        scene.geoms.add({ PlainTriangle(Vector3(-1.0, -1.0, sz), Vector3(1.0, -2.0, sz),
+                                        Vector3(2.0, 2.0, sz), materialwall) });
 
         Model model = loadObj("resources/tree.obj");
         instantiateMesh(scene, model, 0, material1, "resources/tree_base.png");
@@ -161,23 +161,20 @@ struct SphereRayTrace : public App {
                                   .phong = 100.0 };
         LightSystem lightSystem;
         lightSystem.ambientIntensity = 0.2;
-        lightSystem.lights.move(
-            std::move(DirectionalLight{ 1.2, Vector3(-0.5, 0.5, 0.5).normalized() }));
-        lightSystem.lights.move(
-            std::move(DirectionalLight{ 0.3, Vector3(-0.8, -1.0, 0.5).normalized() }));
-        lightSystem.lights.move(
-            std::move(DirectionalLight{ 0.3, Vector3(0.8, -1.0, 0.5).normalized() }));
+        lightSystem.lights.move({ DirectionalLight{ 1.2, Vector3(-0.5, 0.5, 0.5).normalized() } });
+        lightSystem.lights.move({ DirectionalLight{ 0.3, Vector3(-0.8, -1.0, 0.5).normalized() } });
+        lightSystem.lights.move({ DirectionalLight{ 0.3, Vector3(0.8, -1.0, 0.5).normalized() } });
         scene.lightSystem = lightSystem;
 
         Image tex = loadTexture("resources/sphere.jpeg");
         TextureId texId = scene.textures.move(std::move(tex));
 
-        scene.geoms.add(Sphere(Vector3(0.3, 0.0, -0.4), 0.25, material1, texId));
-        scene.geoms.add(PlainTriangle(Vector3(-2.0, 0.0, -1.0), Vector3(2.0, -1.0, 1.0),
-                                      Vector3(2.0, 0.0, -1.0), materialwall));
-        scene.geoms.add(PlainTriangle(Vector3(-2.0, 0.0, -1.0), Vector3(-2.0, -1.0, 1.0),
-                                      Vector3(2.0, -1.0, 1.0), materialwall));
-        scene.geoms.add(Sphere(Vector3(-0.2, -0.1, 0), 0.25, material1, texId));
+        scene.geoms.add({ Sphere(Vector3(0.3, 0.0, -0.4), 0.25, material1, texId) });
+        scene.geoms.add({ PlainTriangle(Vector3(-2.0, 0.0, -1.0), Vector3(2.0, -1.0, 1.0),
+                                        Vector3(2.0, 0.0, -1.0), materialwall) });
+        scene.geoms.add({ PlainTriangle(Vector3(-2.0, 0.0, -1.0), Vector3(-2.0, -1.0, 1.0),
+                                        Vector3(2.0, -1.0, 1.0), materialwall) });
+        scene.geoms.add({ Sphere(Vector3(-0.2, -0.1, 0), 0.25, material1, texId) });
         Basis basis;
         basis.u = Vector3(1.0, 0.0, 0.0);
         basis.v = Vector3(0.0, 1.0, 0.0);

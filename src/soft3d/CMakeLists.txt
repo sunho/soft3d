@@ -1,4 +1,5 @@
 set(SOURCE_LIST
+    scene/ray.h
     scene/scene.h
     scene/bvhtree.h
     scene/geom.h
