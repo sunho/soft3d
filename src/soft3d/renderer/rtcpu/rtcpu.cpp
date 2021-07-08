@@ -232,7 +232,7 @@ bool RTCPURenderer::refractRay(Ray ray, Vector3 normal, Float index, Vector3& ou
 bool RTCPURenderer::testRay(Ray ray, Float t0, Float t1, RayHit& hit) {
     const auto testGeomFunc = [&](const Geometry* geom, Ray ray, Float t0, Float t1, RayHit& hit) {
         hit.geom = geom;
-        if (ray.isShadow && geom->material().refractIndex) {
+        if (ray.isShadow && geom->material().ignoreShadow) {
             return false;
         }
         if (auto sphere = geom->get<PlainSphere>()) {

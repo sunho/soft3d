@@ -2,6 +2,16 @@
 
 3D renderer on cpu supporting raytracer/rasterizer
 
+## Screenshots
+
+| Bielectric material | Soft shadow |
+| :----: | :-----: |
+| ![](resources/screen.png) | ![](resources/screen2.png) |
+
+| Reflection | Splines |
+| :-----: | :-----: |
+| ![](resources/screen.png) | ![](resources/screen2.png) |
+
 ## Features
 
 These features are all built from scrath by referring to fundamental of copmuter graphics

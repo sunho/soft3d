@@ -292,3 +292,50 @@ struct CubicSpline : public Spline {
         return Vector2(0, 0);
     }
 };
+
+struct CardinalControl {
+    Float x;
+    Float y;
+};
+
+// Connect p_2 and p_3 by calculated derivative from p_1p_3 p_2p_4
+// t is tension parameter
+// it scales the derivatives
+// f(0) = p2
+// f(1) = p_3
+// f'(0) = 1/2(1-t)(p_3-p_1)
+// f'(1) = 1/2(1-t)(p_4-p_2)
+// p_0 = f(1) - 2/(1-t)f'(0)
+// p_1 = f(0)
+// p_2 = f(1)
+// p_3 = f(0) + 2/(1-t)f'(1)
+// Solving constraint matrix from this system yields
+// B = [ 0,1,0,0 ; -s,0,s,0 ; 2s,s-3,3-2s,-s ; -s,2-s,s-2,s ]
+// s = (1-t)/2
+struct CardinalSpline : public Spline {
+    std::vector<CardinalControl> controls;
+    CardinalSpline() = default;
+    CardinalSpline(Float tension) {
+        s = (1.0f - tension) / 2.0f;
+        basis = Matrix(
+            4, 4, { 0, 1, 0, 0, -s, 0, s, 0, 2 * s, s - 3, 3 - 2 * s, -s, -s, 2 - s, s - 2, s });
+    }
+    ~CardinalSpline() {
+    }
+
+    Vector2 sample(Float s) override {
+        int n = controls.size() - 3;
+        int i = n * s;
+        Float u = n * s - i;
+        Vector4 uVec = Vector4(1.0, u, u * u, pow(u, 3.0));
+        Vector4 ux(controls[i].x, controls[i + 1].x, controls[i + 2].x, controls[i + 3].x);
+        Vector4 uy(controls[i].y, controls[i + 1].y, controls[i + 2].y, controls[i + 3].y);
+        Float x = uVec.dot(basis * ux);
+        Float y = uVec.dot(basis * uy);
+        return Vector2(x, y);
+    }
+
+  private:
+    Float s;
+    Matrix basis;
+};

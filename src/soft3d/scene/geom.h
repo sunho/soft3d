@@ -16,6 +16,7 @@ struct Material {
     std::optional<Vector3> idealReflect{ std::nullopt };
     std::optional<Float> refractIndex{ std::nullopt };
     Vector3 refractReflectance;
+    bool ignoreShadow{ false };
 };
 
 struct PlainSphere {
