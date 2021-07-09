@@ -16,7 +16,7 @@ These features are all built from scrath by referring to Fundamentals of Compute
 - Reflection
 - Shadow
 - Soft shadow
-- Bielectric material (glass, water)
+- Dielectric material (glass, water)
 - 2D curves (Bezier/bspline)
 - Image filters including Gaussian/bspline filter
 - Antialiased texture sampling (spherial/vertex uv)
@@ -30,4 +30,4 @@ git clone --recursive https://github.com/sunho/soft3d
 cd soft3d
 cmake --build build
 ```
-build folder will contain the build file (visual stduio project, xcode project, makefile, etc)
+build folder will contain the build file (visual studio project, xcode project, makefile, etc)
