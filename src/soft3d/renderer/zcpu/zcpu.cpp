@@ -117,31 +117,69 @@ void ZCPURenderer::renderPass(Image& screen, const Matrix& mvp, const Shader& sh
     threadPool.flush(conf.threadNum);
 }
 
+// Fast rasterization
+// Barycentric cooridnates are "scaled distance" from each edge.
+// a = F01(x,y)/2*area
+// F01(x,y) = Ax+By+C
+// F01(x+1,y) - F01(x,y) = A
+// F01(x,y+1) - F01(x,y) = B
+// We can do incremental update out of this
 void ZCPURenderer::addDrawTriangleJob(Image& screen, const Triangle3& triangle,
                                       const Geometry& geom, const Vector3& homo,
                                       const Shader& shader) {
-    Triangle2 tri(Vector2(triangle.pA[0], triangle.pA[1]), Vector2(triangle.pB[0], triangle.pB[1]),
-                  Vector2(triangle.pC[0], triangle.pC[1]));
-    const int x0 = std::max(std::min({ triangle.pA[0], triangle.pB[0], triangle.pC[0] }), 0.0f);
-    const int x1 = std::min(std::max({ triangle.pA[0], triangle.pB[0], triangle.pC[0] }) + 1,
-                            (float)screen.getWidth());
-    const int y0 = std::max(std::min({ triangle.pA[1], triangle.pB[1], triangle.pC[1] }), 0.0f);
-    const int y1 = std::min(std::max({ triangle.pA[1], triangle.pB[1], triangle.pC[1] }) + 1,
-                            (float)screen.getHeight());
+    // Do fixed floating point like thing to fight boundary artifact caused by "not going enough"
+    constexpr Float fixedFactor = 100.0f;
+
+    Vector2 pA = Vector2(triangle.pA[0], triangle.pA[1]);
+    Vector2 pB = Vector2(triangle.pB[0], triangle.pB[1]);
+    Vector2 pC = Vector2(triangle.pC[0], triangle.pC[1]);
+    const Float area = (pB - pA).cross(pC - pA);
+    const Float areaDiv = 1.0f / (area * fixedFactor);
+
+    const int x0 = std::max(std::min({ pA[0], pB[0], pC[0] }), 0.0f);
+    const int x1 = std::min(std::max({ pA[0], pB[0], pC[0] }) + 1, (float)screen.getWidth());
+    const int y0 = std::max(std::min({ pA[1], pB[1], pC[1] }), 0.0f);
+    const int y1 = std::min(std::max({ pA[1], pB[1], pC[1] }) + 1, (float)screen.getHeight());
+
+    Line2 line01(pA, pB);
+    Line2 line12(pB, pC);
+    Line2 line20(pC, pA);
+
+    const int A01 = line01.AB[0] * fixedFactor;
+    const int B01 = line01.AB[1] * fixedFactor;
+    const int A12 = line12.AB[0] * fixedFactor;
+    const int B12 = line12.AB[1] * fixedFactor;
+    const int A20 = line20.AB[0] * fixedFactor;
+    const int B20 = line20.AB[1] * fixedFactor;
+
+    Vector2 p(x0, y0);
+    int w0Row = line12(p) * fixedFactor;
+    int w1Row = line20(p) * fixedFactor;
+    int w2Row = line01(p) * fixedFactor;
 
     for (int j = y0; j < y1; ++j) {
+        int w0 = w0Row;
+        int w1 = w1Row;
+        int w2 = w2Row;
         for (int i = x0; i < x1; ++i) {
-            Vector3 bary = tri(Vector2(i, j));
-            if (nearInRange(bary.x(), 0.0, 1.0) && nearInRange(bary.y(), 0.0, 1.0) &&
-                nearInRange(bary.z(), 0.0, 1.0)) {
+            if (w0 >= 0 && w1 >= 0 && w2 >= 0) {
+                Vector3 bary(areaDiv * w0, areaDiv * w1, areaDiv * w2);
                 Float depth = bary.x() * triangle.pA.z() + bary.y() * triangle.pB.z() +
                               bary.z() * triangle.pC.z();
-                if (zBuffer.get(i, j) > depth)
-                    continue;
-                zBuffer.set(i, j, depth);
-                fragmentJobBuffer[j * screen.getWidth() + i] = { i, j, bary, homo, geom, depth };
+                if (zBuffer.get(i, j) <= depth) {
+                    zBuffer.set(i, j, depth);
+                    fragmentJobBuffer[j * screen.getWidth() + i] = {
+                        i, j, bary, homo, geom, depth
+                    };
+                }
             }
+            w0 += A12;
+            w1 += A20;
+            w2 += A01;
         }
+        w0Row += B12;
+        w1Row += B20;
+        w2Row += B01;
     }
 }
 
