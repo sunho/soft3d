@@ -55,7 +55,7 @@ struct BoundingRect {
     // for hit case: t_min = -inf t_max = inf (-inf,inf) -> every hit
     // for NaN -> conditions will be evaluated as false <- this case is just taken as hit actually
     // as IEEE rule
-    bool hit(Ray ray) const {
+    bool hit(const Ray& ray) const {
         Float facx = 1.0 / ray.dir.x();
         Float tminX = (minX - ray.origin.x()) * facx;
         Float tmaxX = (maxX - ray.origin.x()) * facx;
