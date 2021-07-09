@@ -14,8 +14,7 @@
 
 ## Features
 
-These features are all built from scrath by referring to fundamental of copmuter graphics
-
+These features are all built from scrath by referring to Fundamentals of Computer Graphics.
 - Phong shading
 - Reflection
 - Shadow
