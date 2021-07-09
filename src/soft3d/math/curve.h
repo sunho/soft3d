@@ -339,3 +339,58 @@ struct CardinalSpline : public Spline {
     Float s;
     Matrix basis;
 };
+
+struct BezierControl {
+    Float x;
+    Float y;
+};
+
+// First definition:
+// It interpolates the endpoints
+// First derivative of start depends on 1,2 point and first derivative of end depends on n-1,n point
+// more specifically it's scaled derivative at those points (velocity "bends" towards end point)
+// e.g. cubic
+// p_0 = f(0)
+// p_3 = f(1)
+// 3(p1-p0) = f'(0)
+// 3(p3-p2) = f'(1)
+// gives cubic bezier formula
+// Second definition:
+// It's linear combination of n-1 order of bezier "sub"curves
+// Bp0(t) = P_0
+// B(t) = Bp0p1...pn(t) = (1-t)Bp0p1...pn-1(t) + tBp1...pn(t)
+// Subdivision scheme:
+// subdivide the curve further into smooth curve (limit curve)
+// e.g. divide p0 p1 p2 into quardratic
+// p(u) = (1-u)((1-u)p0+up1))+u((1-u)p1+up2)
+// it's middle point of (middle point of p0 and p1 and middle point of p1 and p2)
+// degree increaed by 2
+// Properties:
+// it's boudn by convex hull
+// variation dimishing (the curve does not cross the line conneting endpoints more than original
+// knot curve does affine invariant symmetric De casteljau's algorithm: using recurrence relation
+// definition B_i(0) = P_i B_i(j) = B_i(j-1)(1-t_0)+B_i+1(j-1)t_0 B(t) = B_0(n)
+struct BezierCurve : public Spline {
+    std::vector<BezierControl> controls;
+
+    BezierCurve() = default;
+    ~BezierCurve() {
+    }
+
+    Vector2 sample(Float s) override {
+        int n = controls.size();
+        dp.resize(n * n);
+        for (int i = 0; i < n; ++i) {
+            dp[i] = Vector2(controls[i].x, controls[i].y);
+        }
+        for (int j = 1; j < n - 1; ++j) {
+            for (int i = 0; i < n - j; ++i) {
+                dp[j * n + i] = dp[(j - 1) * n + i] * (1 - s) + dp[(j - 1) * n + i + 1] * s;
+            }
+        }
+        return dp[n * (n - 2)];
+    }
+
+  private:
+    std::vector<Vector2> dp;
+};

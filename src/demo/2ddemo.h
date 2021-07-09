@@ -234,13 +234,12 @@ struct FilterSeq : public Demo2D {
 
 struct DrawSpline : public Demo2D {
     CubicSpline spline;
-    CardinalSpline spline2;
+    BezierCurve spline2;
     DrawSpline() {
         spline.controls = { { Vector2(50.0, 50.0), Vector2(0.0, 100.0), Vector2(0.0, -10.0), 0.0 },
                             { Vector2(250.0, 250.0), Vector2(50.0, 10.0), Vector2(100.0, 0.0),
                               0.8 },
                             { Vector2(250.0, 150.0), Vector2(0.0, 0.0), Vector2(0.0, 0.0), 1.0 } };
-        spline2 = CardinalSpline(0.0f);
         spline2.controls = { { 100, 200 }, { 200, 200 }, { 200, 350 },
                              { 300, 400 }, { 300, 350 }, { 300, 500 } };
     }
