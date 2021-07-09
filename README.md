@@ -4,12 +4,9 @@
 
 ## Screenshots
 
-| Mesh | Bielectric material |
+|  | |
 | :----: | :-----: |
 | ![](resources/screen2.png) | ![](resources/screen.png) |
-
-| Reflection | Soft shadow |
-| :-----: | :-----: |
 | ![](resources/screen3.png) | ![](resources/screen4.png) |
 
 ## Features
