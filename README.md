@@ -4,13 +4,13 @@
 
 ## Screenshots
 
-| Bielectric material | Soft shadow |
+| Mesh | Bielectric material |
 | :----: | :-----: |
-| ![](resources/screen.png) | ![](resources/screen2.png) |
+| ![](resources/screen2.png) | ![](resources/screen.png) |
 
-| Reflection | Splines |
+| Reflection | Soft shadow |
 | :-----: | :-----: |
-| ![](resources/screen.png) | ![](resources/screen2.png) |
+| ![](resources/screen3.png) | ![](resources/screen4.png) |
 
 ## Features
 
@@ -21,7 +21,7 @@ These features are all built from scrath by referring to fundamental of copmuter
 - Shadow
 - Soft shadow
 - Bielectric material (glass, water)
-- 2D curves (Bezier/bspline/nurbs)
+- 2D curves (Bezier/bspline)
 - Image filters including Gaussian/bspline filter
 - Antialiased texture sampling (spherial/vertex uv)
 - Basic graphics pipeline

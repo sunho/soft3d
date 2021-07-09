@@ -39,7 +39,7 @@ struct AnimeLoad : public App {
         basis.u = Vector3(1.0, 0.0, 0.0);
         basis.v = Vector3(0.0, 1.0, 0.0);
         basis.w = Vector3(0.0, 0.0, 1.0);
-        scene.camera = Camera(Vector3(0.0, 0.6, 2.5), basis, 1.0);
+        scene.camera = Camera(Vector3(0.0, 0.6, 2.0), basis, 1.0);
         LightSystem lightSystem{};
         lightSystem.ambientIntensity = 0.7;
         /*lightSystem.lights.move(
@@ -74,7 +74,7 @@ struct AnimeLoad : public App {
         scene.environmentMap = scene.textures.move(loadTexture("resources/env.jpg"));
         scene.geoms.add({ PlainSphere(Vector3(0.4, 0.15, 0.4), 0.2, materialglass2) });
         scene.geoms.add({ PlainSphere(Vector3(-0.5, 0.3, 0.4), 0.25, materialglass2) });
-        scene.geoms.add({ PlainSphere(Vector3(0.0, 0.98, 0.6), 0.32, materialglass) });
+        //scene.geoms.add({ PlainSphere(Vector3(0.0, 0.98, 0.6), 0.32, materialglass) });
 
         Float sz = -0.3;
         scene.geoms.add({ PlainTriangle(Vector3(-2.0, 2.0, sz), Vector3(-2.0, -2.0, sz),
@@ -153,9 +153,15 @@ struct SphereRayTrace : public App {
 
     void init(Runtime& engine, Scene& scene) override {
         Material material1 = {
+            .diffuse = Vector3(0x97f291),
+            .ambient = Vector3(0x97f291),
+            .specular = Vector3(0.3, 0.3, 0.3),
+            .phong = 100.0,
+        };
+        Material material2 = {
             .diffuse = Vector3(0x9dcdfc),
             .ambient = Vector3(0x9dcdfc),
-            .specular = Vector3(0.1, 0.1, 0.1),
+            .specular = Vector3(0.3, 0.3, 0.3),
             .phong = 100.0,
         };
         Material materialwall = { .diffuse = Vector3(0.3, 0.3, 0.3),
@@ -164,26 +170,27 @@ struct SphereRayTrace : public App {
                                   .idealReflect = Vector3(0.2, 0.2, 0.2),
                                   .phong = 100.0 };
         LightSystem lightSystem;
-        lightSystem.ambientIntensity = 0.2;
-        lightSystem.lights.move({ DirectionalLight{ 1.2, Vector3(-0.5, 0.5, 0.5).normalized() } });
-        lightSystem.lights.move({ DirectionalLight{ 0.3, Vector3(-0.8, -1.0, 0.5).normalized() } });
-        lightSystem.lights.move({ DirectionalLight{ 0.3, Vector3(0.8, -1.0, 0.5).normalized() } });
+        lightSystem.ambientIntensity = 0.4;
+        lightSystem.lights.move({ AreaLight{ 0.9, Vector3(-0.3, 0.8, 0.6), Vector3(0.0, 0.3, 0.0),
+                                                   Vector3(0.3, 0.0, 0.3) } });
         scene.lightSystem = lightSystem;
 
         Image tex = loadTexture("resources/sphere.jpeg");
         TextureId texId = scene.textures.move(std::move(tex));
 
-        scene.geoms.add({ Sphere(Vector3(0.3, 0.0, -0.4), 0.25, material1, texId) });
+        scene.geoms.add({ PlainSphere(Vector3(0.3, 0.0, -0.4), 0.25, material1) });
         scene.geoms.add({ PlainTriangle(Vector3(-2.0, 0.0, -1.0), Vector3(2.0, -1.0, 1.0),
                                         Vector3(2.0, 0.0, -1.0), materialwall) });
         scene.geoms.add({ PlainTriangle(Vector3(-2.0, 0.0, -1.0), Vector3(-2.0, -1.0, 1.0),
                                         Vector3(2.0, -1.0, 1.0), materialwall) });
-        scene.geoms.add({ Sphere(Vector3(-0.2, -0.1, 0), 0.25, material1, texId) });
+        scene.geoms.add({ PlainSphere(Vector3(-0.2, -0.1, 0), 0.25, material2) });
         Basis basis;
         basis.u = Vector3(1.0, 0.0, 0.0);
         basis.v = Vector3(0.0, 1.0, 0.0);
         basis.w = Vector3(0.0, 0.0, 1.0);
         scene.camera = Camera(Vector3(0.0, 0.0, 1.4), basis, 1.0);
+        
+          //scene.environmentMap = scene.textures.move(loadTexture("resources/env2.jpg"));
     }
 
     void update(Runtime& engine, Scene& scene, double dt) override {
