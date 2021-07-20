@@ -10,8 +10,9 @@ struct RTCPUConfig {
     size_t maxWidth{ 1000 };
     size_t maxHeight{ 1000 };
     int maxRayHit{ 20 };
-    int distSampleNum{ 3 };
-    bool antialias{ false };
+    int distSampleNum{ 4 };
+    bool antialias{ true };
+    bool usePathtracing{ true };
     Float closeTime{ 0.0001f };
 };
 
@@ -36,7 +37,6 @@ struct RTCPURenderer : public Renderer {
     bool testTriangleRay(const Triangle3& triangle, Ray ray, Float t0, Float t1, RayHit& hit,
                          bool singleSide);
     std::vector<Vector2> generateJittered(int n);
-
     RTCPUConfig conf;
     ThreadPool<Vector2> threadPool;
     Scene scene;

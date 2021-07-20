@@ -28,6 +28,64 @@ void instantiateMesh(Scene& scene, Model& model, int i, Material material, std::
     }
 }
 
+struct Room : public App {
+    Room() {
+    }
+    ~Room() {
+    }
+
+    void init(Runtime& engine, Scene& scene) override {
+        Basis basis;
+        basis.u = Vector3(1.0, 0.0, 0.0);
+        basis.v = Vector3(0.0, 1.0, 0.0);
+        basis.w = Vector3(0.0, 0.0, 1.0);
+        scene.camera = Camera(Vector3(0.0, 0.68, 1.8), basis, 1.0);
+        LightSystem lightSystem{};
+        lightSystem.ambientIntensity = 0.3;
+        /*lightSystem.lights.move(
+            std::move(DirectionalLight{ 1.2, Vector3(-0.5, 0.5, 0.5).normalized() }));*/
+        lightSystem.lights.move({ AreaLight{ 1.0, Vector3(-0.18, 0.5, 0.9), Vector3(0.0, 0.4, 0.0),
+                                             Vector3(0.4, 0.0, 0.0) } });
+        scene.lightSystem = lightSystem;
+
+        Material material1 = { .diffuse = Vector3(0.5, 1.0, 0.5),
+                               .ambient = Vector3(0.5, 1.0, 0.5),
+                               .specular = Vector3(0.3, 0.3, 0.3),
+
+                               .phong = 100.0 };
+
+        Material material2 = { .diffuse = Vector3(0.5, 0.5, 0.5),
+                               .ambient = Vector3(0.5, 0.5, 0.5),
+                               .specular = Vector3(0.3, 0.3, 0.3),
+                               .phong = 100.0,
+                               .idealReflect = Vector3(0.3, 0.3, 0.3)
+        };
+
+        Material materialwall = { .diffuse = Vector3(0.4, 0.4, 0.4),
+                                  .ambient = Vector3(0.8, 0.8, 0.8),
+                                  .specular = Vector3(0.3, 0.3, 0.3),
+                                  //.idealReflect = Vector3(0.2, 0.2, 0.2),
+                                  .phong = 100.0 };
+        Material materialglass = { .refractIndex = 1.3f,
+                                   .refractReflectance = Vector3(0.0, 0.0, -0.2),
+                                   .ignoreShadow = false };
+        Material materialglass2 = { 
+                                    .ignoreShadow = false };
+         scene.geoms.add({ PlainSphere(Vector3(-0.2, 0.4, 0.5), 0.2, materialwall) });
+        // scene.geoms.add({ PlainSphere(Vector3(-0.5, 0.3, 0.4), 0.25, materialglass2) });
+        //scene.geoms.add({ PlainSphere(Vector3(0.0, 0.98, 0.6), 0.32, materialglass) });
+
+        Float sz = -0.3;
+
+        Model model = loadObj("resources/room.obj");
+        instantiateMesh(scene, model, 0, material1, "resources/cube.jpg");
+        // instantiateMesh(scene, model2, 0, materialglass, "");
+    }
+
+    void update(Runtime& engine, Scene& scene, double dt) override {
+    }
+};
+
 struct AnimeLoad : public App {
     AnimeLoad() {
     }
@@ -44,8 +102,8 @@ struct AnimeLoad : public App {
         lightSystem.ambientIntensity = 0.7;
         /*lightSystem.lights.move(
             std::move(DirectionalLight{ 1.2, Vector3(-0.5, 0.5, 0.5).normalized() }));*/
-        lightSystem.lights.move({ AreaLight{ 0.5, Vector3(-0.05, 0.6, 1.0), Vector3(0.0, 0.1, 0.0),
-                                             Vector3(0.1, 0.0, 0.0) } });
+        lightSystem.lights.move({ AreaLight{ 0.5, Vector3(-0.2, 0.3, 1.0), Vector3(0.0, 0.4, 0.0),
+                                             Vector3(0.4, 0.0, 0.0) } });
         scene.lightSystem = lightSystem;
 
         Material material1 = { .diffuse = Vector3(0.5, 1.0, 0.5),
@@ -57,20 +115,21 @@ struct AnimeLoad : public App {
         Material material2 = { .diffuse = Vector3(0.5, 0.5, 0.5),
                                .ambient = Vector3(0.5, 0.5, 0.5),
                                .specular = Vector3(0.3, 0.3, 0.3),
-                               .idealReflect = Vector3(0.3, 0.3, 0.3),
-                               .phong = 100.0 };
+                               .phong = 100.0,
+                               .idealReflect = Vector3(0.3, 0.3, 0.3)
+        };
 
-        Material materialwall = { .diffuse = Vector3(0.4, 0.4, 0.4),
+        Material materialwall = { .diffuse = Vector3(0.4, 0.4, 0.8),
                                   .ambient = Vector3(0.8, 0.8, 0.8),
                                   .specular = Vector3(0.3, 0.3, 0.3),
                                   //.idealReflect = Vector3(0.2, 0.2, 0.2),
                                   .phong = 100.0 };
         Material materialglass = { .refractIndex = 1.3f,
                                    .refractReflectance = Vector3(0.0, 0.0, -0.2),
-                                   .ignoreShadow = true };
+                                   .ignoreShadow = false };
         Material materialglass2 = { .refractIndex = 1.6f,
                                     .refractReflectance = Vector3(0.0, 0.0, -0.2),
-                                    .ignoreShadow = true };
+                                    .ignoreShadow = false };
         scene.environmentMap = scene.textures.move(loadTexture("resources/env.jpg"));
         scene.geoms.add({ PlainSphere(Vector3(0.4, 0.15, 0.4), 0.2, materialglass2) });
         scene.geoms.add({ PlainSphere(Vector3(-0.5, 0.3, 0.4), 0.25, materialglass2) });
@@ -125,8 +184,8 @@ struct ObjLoad : public App {
         Material materialwall = { .diffuse = Vector3(0.4, 0.4, 0.4),
                                   .ambient = Vector3(0.8, 0.8, 0.8),
                                   .specular = Vector3(0.3, 0.3, 0.3),
-                                  .idealReflect = Vector3(0.2, 0.2, 0.2),
-                                  .phong = 100.0 };
+                                  .phong = 100.0,
+                                  .idealReflect = Vector3(0.2, 0.2, 0.2) };
         Material materialglass = { .refractIndex = 1.5f,
                                    .refractReflectance = Vector3(0.0, 0.0, -0.3) };
 
@@ -152,23 +211,24 @@ struct SphereRayTrace : public App {
     }
 
     void init(Runtime& engine, Scene& scene) override {
-        Material material1 = {
+        Material material1 {
             .diffuse = Vector3(0x97f291),
             .ambient = Vector3(0x97f291),
             .specular = Vector3(0.3, 0.3, 0.3),
             .phong = 100.0,
         };
-        Material material2 = {
+        Material material2 {
             .diffuse = Vector3(0x9dcdfc),
             .ambient = Vector3(0x9dcdfc),
             .specular = Vector3(0.3, 0.3, 0.3),
             .phong = 100.0,
         };
-        Material materialwall = { .diffuse = Vector3(0.3, 0.3, 0.3),
+        Material materialwall { .diffuse = Vector3(0.3, 0.3, 0.3),
                                   .ambient = Vector3(0.8, 0.8, 0.8),
                                   .specular = Vector3(0.3, 0.3, 0.3),
+                                  .phong = 100.0,
                                   .idealReflect = Vector3(0.2, 0.2, 0.2),
-                                  .phong = 100.0 };
+        };
         LightSystem lightSystem;
         lightSystem.ambientIntensity = 0.4;
         lightSystem.lights.move({ AreaLight{ 0.9, Vector3(-0.3, 0.8, 0.6), Vector3(0.0, 0.3, 0.0),

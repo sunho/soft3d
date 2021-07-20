@@ -1,5 +1,6 @@
 #include "loader.h"
 
+#include <algorithm>
 #include <stb_image.h>
 
 std::vector<Triangle> Model::generateTriangles(int mesh, Material material, TextureId tex) {

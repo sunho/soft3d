@@ -3,6 +3,7 @@
 #include <soft3d/scene/geom.h>
 
 #include <list>
+#include <algorithm>
 #include <map>
 #include <set>
 #include <variant>

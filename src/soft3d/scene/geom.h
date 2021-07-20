@@ -7,8 +7,16 @@
 #include <optional>
 #include <variant>
 
+
+using BRDF = std::function<Float(Vector3 ki, Vector3 ke)>;
+
+static Float LambertianBRDF(Vector3 ki, Vector3 ke) {
+    // R / pi
+    // R = directional hemispherical reflectance 
+    return 1.0 / PI;
+}
+
 struct Material {
-    Material() = default;
     Vector3 diffuse;
     Vector3 ambient;
     Vector3 specular;
@@ -17,7 +25,9 @@ struct Material {
     std::optional<Float> refractIndex{ std::nullopt };
     Vector3 refractReflectance;
     bool ignoreShadow{ false };
+    BRDF brdf = LambertianBRDF;
 };
+
 
 struct PlainSphere {
     Vector3 center;
@@ -73,6 +83,7 @@ struct Triangle {
     Material material;
     TextureId texture{ 0 };
     TextureId normalMap{ 0 };
+    TextureId particleMap{ 0 };
 
     Triangle() = default;
     explicit Triangle(TriangleVertex a, TriangleVertex b, TriangleVertex c, Material material)
@@ -92,7 +103,7 @@ struct Geometry {
     Geometry(GeometryData&& data) : data(data) {
     }
 
-    Material material() const {
+    const Material& material() const {
         return std::visit([](auto& data) { return data.material; }, data);
     }
 

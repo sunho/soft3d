@@ -3,7 +3,6 @@
 struct Geometry;
 
 struct Ray {
-    Ray() = default;
     Vector3 origin;
     Vector3 dir;
     bool isShadow{ false };
@@ -17,8 +16,6 @@ struct RayHit {
 };
 
 struct BoundingRect {
-    BoundingRect() = default;
-
     Float minX{ 0.0f };
     Float minY{ 0.0f };
     Float minZ{ 0.0f };
@@ -27,9 +24,10 @@ struct BoundingRect {
     Float maxZ{ 0.0f };
 
     BoundingRect operator+(const BoundingRect& other) const {
-        return BoundingRect{ std::min(minX, other.minX), std::min(minY, other.minY),
+        BoundingRect rect { std::min(minX, other.minX), std::min(minY, other.minY),
                              std::min(minZ, other.minZ), std::max(maxX, other.maxX),
                              std::max(maxY, other.maxY), std::max(maxZ, other.maxZ) };
+        return rect;
     }
 
     Float minComp(int axis) const {

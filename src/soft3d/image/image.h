@@ -29,6 +29,10 @@ struct Image {
         return getPixel(x, y);
     }
 
+    void sigmoidToneReconstruct() {
+        
+    }
+
     inline void setPixel(int x, int y, const Vector3& rgb) {
         if (x < 0 || x >= width || y < 0 || y >= height)
             return;

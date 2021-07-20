@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+#include <cassert>
 #include <array>
 #include <cmath>
 #include <cstdlib>
@@ -278,20 +280,20 @@ struct GVector4 final : public GVector<GVector4<F>, F, 4> {
     }
 
     GVector3<F> trunc() const {
-        return GVector3<F>({ this->data[0], this->data[1], this->data[2] });
+        return GVector3<F>( this->data[0], this->data[1], this->data[2] );
     }
 
     GVector3<F> homoDiv() const {
         if (w() == 0.0f) {
-            return GVector3<F>({ this->data[0], this->data[1], this->data[2] });
+            return GVector3<F>( this->data[0], this->data[1], this->data[2] );
         }
-        return GVector3<F>({ this->data[0] / w(), this->data[1] / w(), this->data[2] / w() });
+        return GVector3<F>( this->data[0] / w(), this->data[1] / w(), this->data[2] / w() );
     }
 };
 
 template <typename F>
 GVector4<F> GVector3<F>::expand(F w) const {
-    return GVector4<F>({ this->data[0], this->data[1], this->data[2], w });
+    return GVector4<F>( this->data[0], this->data[1], this->data[2], w);
 }
 
 template <typename F>
@@ -475,8 +477,8 @@ struct GMatrix {
 using Matrix = GMatrix<Float>;
 
 constexpr Float PI = 3.14159265358979323846f;
-static const Float INF = 1.0f / 0.0f;
-static const Float NINF = -1.0f / 0.0f;
+static const Float INF = std::numeric_limits<float>::infinity();
+static const Float NINF = -std::numeric_limits<float>::infinity();
 
 struct Basis {
     Basis() = default;
