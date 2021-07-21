@@ -29,8 +29,32 @@ struct Image {
         return getPixel(x, y);
     }
 
-    void sigmoidToneReconstruct() {
-        
+    void sigmoidToneMap() {
+        Float lsum = 0.0;
+        Float del = 0.00001; // prevent 0
+        Float factor = 1.0f / (width * height);
+        Image lumi(width, height);
+        //ITU BT.601
+        const Vector3 c(0.299, 0.587, 0.114);
+        for (size_t j = 0; j < height; ++j) {
+            for (size_t i = 0; i < width; ++i) {
+                Float l= getPixel(i, j).dot(c);
+                lsum += factor*log(del + l);
+                lumi.setPixel(i, j, Vector3(l, 0, 0));
+            }
+        }
+        Float gavg = exp(lsum);
+        Float alpha = 0.05; // parameter
+        for (size_t j = 0; j < height; ++j) {
+            for (size_t i = 0; i < width; ++i) {
+                Vector3 pixel = getPixel(i, j);
+                Float fxy = alpha * lumi.getPixel(i, j).x() + (1 - alpha) * gavg;
+                Float r = pixel.x() / (pixel.x() + fxy);
+                Float g = pixel.y() / (pixel.y() + fxy);
+                Float b = pixel.z() / (pixel.z() + fxy);
+                setPixel(i, j, Vector3(r, g, b));
+            }
+        }
     }
 
     inline void setPixel(int x, int y, const Vector3& rgb) {

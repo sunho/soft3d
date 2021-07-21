@@ -6,14 +6,16 @@
 
 struct RTCPUConfig {
     RTCPUConfig() = default;
-    int threadNum{ 10 };
+    int threadNum{ 12 };
     size_t maxWidth{ 1000 };
     size_t maxHeight{ 1000 };
     int maxRayHit{ 20 };
     int distSampleNum{ 4 };
     bool antialias{ true };
-    bool usePathtracing{ true };
+    bool pathtracing{ true };
+    size_t pathSampleNum{ 100 };
     Float closeTime{ 0.0001f };
+    Float closeEpsillon { 0.000001f };
 };
 
 struct RTCPURenderer : public Renderer {

@@ -20,6 +20,7 @@ struct Material {
     Vector3 diffuse;
     Vector3 ambient;
     Vector3 specular;
+    Float albedo{ 1.0f };
     Float phong{ 100.0 };
     std::optional<Vector3> idealReflect{ std::nullopt };
     std::optional<Float> refractIndex{ std::nullopt };

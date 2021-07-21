@@ -66,14 +66,16 @@ struct BoundingRect {
         if (ray.dir.y() < 0) {
             std::swap(tminY, tmaxY);
         }
+        if (tminX > tmaxY || tmaxX < tminY) {
+            return false;
+        }
         Float facz = 1.0 / ray.dir.z();
         Float tminZ = (minZ - ray.origin.z()) * facz;
         Float tmaxZ = (maxZ - ray.origin.z()) * facz;
         if (ray.dir.z() < 0) {
             std::swap(tminZ, tmaxZ);
         }
-        if (tminX > tmaxY || tmaxX < tminY || tminX > tmaxZ || tmaxX < tminZ || tminY > tmaxZ ||
-            tmaxY < tminZ) {
+        if (tminX > tmaxZ || tmaxX < tminZ) {
             return false;
         } else {
             return true;

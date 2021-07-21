@@ -22,21 +22,23 @@ void RTCPURenderer::render(Image& screen) {
         }
     }
     threadPool.flush(conf.threadNum);
+    if (conf.pathtracing) {
+        screen.sigmoidToneMap();
+    } 
 }
 
 void RTCPURenderer::renderPixel(const Vector2& pos, Image& screen) {
     auto jittered = generateJittered(conf.distSampleNum);
-    if (!conf.antialias) {
+    if (!conf.pathtracing) {
         const Ray ray = scene.camera.generateRay(pos, screen);
         screen.setPixel(pos, rayColor(ray, 0.0, INF, jittered));
     } else {
         Vector3 pixel;
-        const size_t n = 3;
-        auto jittered_ = generateJittered(n);
-        for (auto& sample : jittered_) {
-            Vector2 pos2 = pos;
+        const size_t n = conf.pathSampleNum;
+        for (int i = 0; i < n; ++i) {
+            Vector2 pos2 = pos + Vector2(randUniform()-0.5, randUniform()-0.5);
             const Ray ray = scene.camera.generateRay(pos2, screen);
-            pixel += rayColor(ray, 0.0f, INF, jittered) / (n * n);
+            pixel += rayColor(ray, 0.0f, INF, jittered) /n;
         }
         screen.setPixel(pos, pixel);
     }
@@ -74,98 +76,81 @@ Vector3 RTCPURenderer::rayColor(Ray ray, Float t0, Float t1, const std::vector<V
                          triangle->vC.normal * bary.z();
         }
         
-        Vector3 pixel = material.diffuse*0.5;
-        if (depth == 0) {
-			if (material.refractIndex) {
-				pixel = shadeDielectric(ray, hit, material, jittered, depth);
-			} else {
-				pixel = shadePhong(ray, hit, material, jittered, depth);
-			}
+        Vector3 direct = material.diffuse;
+        if (material.refractIndex) {
+            direct = shadeDielectric(ray, hit, material, jittered, depth);
+        } else {
+            direct = shadePhong(ray, hit, material, jittered, depth);
         }
-        /*if (conf.usePathtracing) {
-			for (size_t i = 0; i < conf.distSampleNum * conf.distSampleNum; ++i) {
-				auto sample = jittered[i];
-				Vector3 dir = ray.dir - 2 * (ray.dir.dot(hit.normal)) * hit.normal;
-				Vector3 w = dir.normalized();
-				Vector3 u = ray.dir.cross(w).normalized();
-				Vector3 v = w.cross(u);
-				Float j1 = sample.x()/4;
-                Float j2 = sample.y() / 4;
-				
-				Vector3 rd = cos(2 * PI * j1) * sqrt(j2) * u + sin(2 * PI * j1) * sqrt(j2) * v +
-							 sqrt(1 - j2) * w;
-				Float factor = 1.0f / (conf.distSampleNum * conf.distSampleNum);
-				pixel += factor *  rayColor(Ray{ hit.pos, rd }, conf.closeTime, INF, jittered, depth + 1);
-			}
-        }*/
+        if (!conf.pathtracing) {
+            return direct;
+        }
+
 		Vector3 dir = ray.dir - 2 * (ray.dir.dot(hit.normal)) * hit.normal;
-        //dir = hit.normal.normalized();
 		Vector3 w = dir.normalized();
 		Vector3 u = ray.dir.cross(w).normalized();
 		Vector3 v = w.cross(u);
-		Float j1 = randUniform() / 3;
-		Float j2 = randUniform() / 3;
-		
+		Float j1 = randUniform();
+		Float j2 = randUniform();
 		Vector3 rd = cos(2 * PI * j1) * sqrt(j2) * u + sin(2 * PI * j1) * sqrt(j2) * v +
 					 sqrt(1 - j2) * w;
-		Float factor = 0.7f;
-		pixel += factor *  rayColor(Ray{ hit.pos, rd }, conf.closeTime, INF, jittered, depth + 1);
-		return pixel;
+		Vector3 indirect = rayColor(Ray{ hit.pos, rd }, conf.closeTime, INF, jittered, depth + 1);
+        return direct * material.diffuse + material.diffuse * indirect;
     } else {
         if (scene.environmentMap) {
             Vector2 uv = convertSphereTexcoord(ray.dir);
             return sampleBilinear(*scene.textures.get(scene.environmentMap), uv, false);
         }
-        return Vector3(0.8f, 0.8f, 0.8f);
+        return Vector3(1.0f, 1.0f, 1.0f);
     }
 }
 
 Vector3 RTCPURenderer::shadePhong(Ray ray, RayHit hit, const Material& shade,
                                   const std::vector<Vector2>& jittered, int depth) {
 	RayHit dummyHit;
-    if (conf.usePathtracing) {
-		  Vector3 pixel;
-        Vector3 Le = shade.diffuse;
-		Vector3 ko = ray.dir - 2 * (ray.dir.dot(hit.normal)) * hit.normal;
+    if (conf.pathtracing) {
+        Vector3 pixel;
+        Vector3 Le = Vector3(0xfff9c9);
+        Vector3 ko = ray.dir - 2 * (ray.dir.dot(hit.normal)) * hit.normal;
         for (auto& [_, l] : scene.lightSystem.lights) {
             Vector3 ki;
             Float intensity;
             if (auto light = l.get<AreaLight>()) {
-                for (auto& sample : jittered) {
-                    Float u = sample.x() / conf.distSampleNum;
-                    Float v = sample.y() / conf.distSampleNum;
-                    Vector3 lightPos = light->pos + u * light->edge1 + v * light->edge2;
-                    Vector3 lightN = light->edge1.cross(light->edge2).normalized();
-                    Vector3 d = lightPos - hit.pos;
-                    Float factor = 1.0f / (conf.distSampleNum * conf.distSampleNum);
-                    ki = d.normalized();
-                    if (!testRay(Ray{ hit.pos, d, true }, conf.closeTime, INF, dummyHit)) {
-                        Float p = shade.brdf(ko, ki);
-                        pixel += factor * 3 * p * Le * (std::max(hit.normal.dot(d), 0.0f)) *
-                                 (-std::min(lightN.dot(d), 0.0f)) / (d.norm2() * d.norm2());
-                    }
+                Float u = randUniform();
+                Float v = randUniform();
+                Vector3 lightPos = light->pos + u * light->edge1 + v * light->edge2;
+                Vector3 lightN = light->edge1.cross(light->edge2).normalized();
+                Vector3 d = lightPos - hit.pos;
+                /*if (d.dot(lightN) > 0) {
+                    lightN *= -1; 
+                }*/
+                intensity = clamp(light->intensity / d.norm2(), 0.0f, 20.0f);
+                ki = d.normalized();
+                if (!testRay(Ray{ hit.pos, d, false }, conf.closeTime, 1.0f - conf.closeEpsillon, dummyHit)) {
+                    Float p = shade.brdf(ko, ki);
+                    Float cosinTerms = std::max(hit.normal.dot(d), 0.0f) * std::max(-lightN.dot(d), 0.0f);
+                    pixel += intensity * p * Le * cosinTerms / (d.norm2()* d.norm2());
                 }
             } else {
                 l.unwrap(hit.pos, ki, intensity);
                 // TODO
             }
-        }
-
-        if (shade.idealReflect) {
-            Vector3 dir = ray.dir - 2 * (ray.dir.dot(hit.normal)) * hit.normal;
-            pixel += *shade.idealReflect *
-                     rayColor(Ray{ hit.pos, dir }, conf.closeTime, INF, jittered, depth + 1);
+            if (shade.idealReflect) {
+                Vector3 dir = ray.dir - 2 * (ray.dir.dot(hit.normal)) * hit.normal;
+                pixel += *shade.idealReflect *
+                         rayColor(Ray{ hit.pos, dir }, conf.closeTime, INF, jittered, depth + 1);
+            }
         }
 
         return pixel;
     } else {
         Vector3 pixel = scene.lightSystem.ambientIntensity * shade.ambient;
         const auto shadeColor = [&](const Vector3& lightV, Float intensity) {
-            if (!testRay(Ray{ hit.pos, lightV, true }, conf.closeTime, INF, dummyHit)) {
-                Vector3 h = (-1 * ray.dir.normalized() + lightV).normalized();
+            if (!testRay(Ray{ hit.pos, lightV, true }, conf.closeTime, 1 - 0.0001, dummyHit)) {
+                Vector3 h = (-1 * ray.dir.normalized() + lightV.normalized()).normalized();
                 Float phongFactor = std::max(0.0f, lightV.dot(hit.normal));
                 Float specFactor = std::max(0.0f, h.dot(hit.normal));
-                pixel += intensity * (specFactor * shade.diffuse +
+                pixel +=  (intensity * specFactor * shade.diffuse +
                                       pow(phongFactor, shade.phong) * shade.specular);
             }
         };
@@ -177,8 +162,8 @@ Vector3 RTCPURenderer::shadePhong(Ray ray, RayHit hit, const Material& shade,
                     Float u = sample.x() / conf.distSampleNum;
                     Float v = sample.y() / conf.distSampleNum;
                     Vector3 lightPos = light->pos + u * light->edge1 + v * light->edge2;
-                    lightV = (lightPos - hit.pos).normalized();
-                    intensity = light->intensity / (lightPos - hit.pos).norm();
+                    lightV = (lightPos - hit.pos);
+                    intensity = light->intensity / lightV.norm();
                     intensity /= (conf.distSampleNum * conf.distSampleNum);
                     shadeColor(lightV, intensity);
                 }

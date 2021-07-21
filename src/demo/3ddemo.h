@@ -44,14 +44,15 @@ struct Room : public App {
         lightSystem.ambientIntensity = 0.3;
         /*lightSystem.lights.move(
             std::move(DirectionalLight{ 1.2, Vector3(-0.5, 0.5, 0.5).normalized() }));*/
-        lightSystem.lights.move({ AreaLight{ 1.0, Vector3(-0.18, 0.5, 0.9), Vector3(0.0, 0.4, 0.0),
-                                             Vector3(0.4, 0.0, 0.0) } });
+        lightSystem.lights.move({ AreaLight{ 12.0, Vector3(-0.2, 1.12, 0.2),
+                                             Vector3(0.4, 0.0, 0.0), Vector3(0.0, 0.0, 0.4) } });
         scene.lightSystem = lightSystem;
 
-        Material material1 = { .diffuse = Vector3(0.5, 1.0, 0.5),
-                               .ambient = Vector3(0.5, 1.0, 0.5),
-                               .specular = Vector3(0.3, 0.3, 0.3),
-
+        Material material1 = {
+            .diffuse = Vector3(0.5, 1.0, 0.5),
+            .ambient = Vector3(0.5, 1.0, 0.5),
+            .specular = Vector3(0.3, 0.3, 0.3),
+            .albedo = 0.1f,
                                .phong = 100.0 };
 
         Material material2 = { .diffuse = Vector3(0.5, 0.5, 0.5),
@@ -71,7 +72,7 @@ struct Room : public App {
                                    .ignoreShadow = false };
         Material materialglass2 = { 
                                     .ignoreShadow = false };
-         scene.geoms.add({ PlainSphere(Vector3(-0.2, 0.4, 0.5), 0.2, materialwall) });
+         scene.geoms.add({ PlainSphere(Vector3(-0.2, 0.35, 0.2), 0.2, materialwall) });
         // scene.geoms.add({ PlainSphere(Vector3(-0.5, 0.3, 0.4), 0.25, materialglass2) });
         //scene.geoms.add({ PlainSphere(Vector3(0.0, 0.98, 0.6), 0.32, materialglass) });
 
