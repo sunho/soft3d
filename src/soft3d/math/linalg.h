@@ -8,6 +8,7 @@
 #include <optional>
 #include <sstream>
 #include <vector>
+#include <algorithm>
 
 namespace details {
 template <typename T, typename F>
@@ -26,13 +27,24 @@ struct ctrp {
 template <typename T, typename F, size_t n>
 struct GVector : public details::ctrp<T, F> {
     GVector() {
-        data.fill(0);
+        std::fill_n(data, 4, 0.0f);
     }
-    explicit GVector(const F* l) : data(l) {
+    explicit GVector(const F* l) {
+        for (size_t i = 0; i < 4; ++i) {
+            if (i < n) {
+                data[i] = l[i];
+            } else {
+                data[i] = 0.0f;
+            }
+        }
     }
     explicit GVector(const std::vector<F>& l) {
-        for (size_t i = 0; i < n; ++i) {
+        for (size_t i = 0; i < 4; ++i) {
+            if (i < n) {
             data[i] = l[i];
+            } else {
+                data[i] = 0.0f;
+            }
         }
     }
 
@@ -120,6 +132,32 @@ struct GVector : public details::ctrp<T, F> {
         return out;
     }
 
+    inline T& operator-=(F scalar) {
+        for (size_t i = 0; i < n; ++i) {
+            data[i] -= scalar;
+        }
+        return this->u();
+    }
+
+    inline T operator-(F scalar) const {
+        T out = this->u();
+        out -= scalar;
+        return out;
+    }
+
+    inline T& operator+=(F scalar) {
+        for (size_t i = 0; i < n; ++i) {
+            data[i] += scalar;
+        }
+        return this->u();
+    }
+
+    inline T operator+(F scalar) const {
+        T out = this->u();
+        out += scalar;
+        return out;
+    }
+
     inline T& operator/=(F scalar) {
         for (size_t i = 0; i < n; ++i) {
             data[i] /= scalar;
@@ -133,6 +171,19 @@ struct GVector : public details::ctrp<T, F> {
         return out;
     }
 
+    inline T& operator/=(const T& other) {
+        for (size_t i = 0; i < n; ++i) {
+            data[i] /= other[i];
+        }
+        return this->u();
+    }
+
+    inline T operator/(const T& other) const {
+        T out = this->u();
+        out /= other;
+        return out;
+    }
+
     inline F dot(const T& other) const {
         T tmp = this->u();
         tmp *= other;
@@ -141,6 +192,30 @@ struct GVector : public details::ctrp<T, F> {
             out += tmp[i];
         }
         return out;
+    }
+
+    inline T max(const T& other) const {
+        T out = this->u();
+        for (size_t i = 0; i < n; ++i) {
+            out[i] = std::max(out[i], other[i]);
+        }
+        return out;
+    }
+
+    inline T min(const T& other) const {
+        T out = this->u();
+        for (size_t i = 0; i < n; ++i) {
+            out[i] = std::min(out[i], other[i]);
+        }
+        return out;
+    }
+
+    F hmax() const {
+        return *std::max_element(data, data + n);
+    }
+
+    F hmin() const {
+        return *std::min_element(data, data + n);
     }
 
     inline F norm2() const {
@@ -183,7 +258,7 @@ struct GVector : public details::ctrp<T, F> {
     }
 
   protected:
-    std::array<F, n> data;
+    F data[4];
 };
 
 template <typename F>

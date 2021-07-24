@@ -11,9 +11,7 @@ struct RTCPUConfig {
     size_t maxHeight{ 1000 };
     int maxRayHit{ 20 };
     int distSampleNum{ 4 };
-    bool antialias{ true };
-    bool pathtracing{ true };
-    size_t pathSampleNum{ 100 };
+    size_t pathSampleNum{ 10 };
     Float closeTime{ 0.0001f };
     Float closeEpsillon { 0.000001f };
 };
@@ -24,15 +22,15 @@ struct RTCPURenderer : public Renderer {
 
     Scene& sceneRef() override;
     void render(Image& screen) override;
+    int getProcessedRays() {
+        return processedRays.load(std::memory_order_relaxed);
+    }
 
   private:
     void renderPixel(const Vector2& pos, Image& screen);
-    Vector3 rayColor(Ray ray, Float t0, Float t1, const std::vector<Vector2>& jittered,
-                     int depth = 0);
-    Vector3 shadePhong(Ray ray, RayHit hit, const Material& shade,
-                       const std::vector<Vector2>& jittered, int depth);
-    Vector3 shadeDielectric(Ray ray, RayHit hit, const Material& shade,
-                            const std::vector<Vector2>& jittered, int depth);
+    Vector3 rayColor(Ray ray, Float t0, Float t1, int depth = 0);
+    Vector3 shadePhong(Ray ray, RayHit hit, const Material& shade, int depth);
+    Vector3 shadeDielectric(Ray ray, RayHit hit, const Material& shade, int depth);
     bool refractRay(Ray ray, Vector3 normal, Float index, Vector3& out);
     bool testRay(Ray ray, Float t0, Float t1, RayHit& hit);
     bool testSphereRay(const Vector3& e, Float radius, Ray ray, Float t0, Float t1, RayHit& hit);
@@ -42,4 +40,5 @@ struct RTCPURenderer : public Renderer {
     RTCPUConfig conf;
     ThreadPool<Vector2> threadPool;
     Scene scene;
+    std::atomic<int> processedRays{ 0 };
 };

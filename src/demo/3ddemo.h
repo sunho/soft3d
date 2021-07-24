@@ -72,7 +72,7 @@ struct Room : public App {
                                    .ignoreShadow = false };
         Material materialglass2 = { 
                                     .ignoreShadow = false };
-         scene.geoms.add({ PlainSphere(Vector3(-0.2, 0.35, 0.2), 0.2, materialwall) });
+         scene.geoms.add({ PlainSphere(Vector3(-0.2, 0.35, 0.2), 0.2, material2) });
         // scene.geoms.add({ PlainSphere(Vector3(-0.5, 0.3, 0.4), 0.25, materialglass2) });
         //scene.geoms.add({ PlainSphere(Vector3(0.0, 0.98, 0.6), 0.32, materialglass) });
 

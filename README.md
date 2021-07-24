@@ -6,8 +6,8 @@
 
 |  | |
 | :----: | :-----: |
-| ![](resources/screen2.png) | ![](resources/screen.png) |
-| ![](resources/screen3.png) | ![](resources/screen4.png) |
+| ![](resources/screen5.png) | ![](resources/screen.png) |
+| ![](resources/screen3.png) |  |
 
 ## Features
 

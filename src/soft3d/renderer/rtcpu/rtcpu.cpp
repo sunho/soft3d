@@ -14,7 +14,19 @@ Scene& RTCPURenderer::sceneRef() {
 void RTCPURenderer::render(Image& screen) {
     threadPool.setJobFunc([&](Vector2 pos) { renderPixel(pos, screen); });
     scene.geoms.prepare();
-
+    std::atomic<bool> quit{ false };
+    std::thread timerThread([&]() { 
+        using namespace std::chrono;
+        int prevRays = getProcessedRays();
+        auto next = std::chrono::system_clock::now() + 1s;
+        while (!quit.load(std::memory_order_relaxed)) {
+            int nextRays = getProcessedRays();
+            printf("Rays per seconds: %d\n", nextRays - prevRays);
+            prevRays = nextRays;
+            std::this_thread::sleep_until(next);
+            next += 1s;
+        }
+    });
     for (int i = 0; i < screen.getWidth(); ++i) {
         for (int j = 0; j < screen.getHeight(); ++j) {
             Vector2 pos(i, j);
@@ -22,32 +34,20 @@ void RTCPURenderer::render(Image& screen) {
         }
     }
     threadPool.flush(conf.threadNum);
-    if (conf.pathtracing) {
-        screen.sigmoidToneMap();
-    } 
+    quit.store(true, std::memory_order_acquire);
+    timerThread.join();
+    screen.sigmoidToneMap();
 }
 
 void RTCPURenderer::renderPixel(const Vector2& pos, Image& screen) {
-    auto jittered = generateJittered(conf.distSampleNum);
-    if (!conf.pathtracing) {
-        const Ray ray = scene.camera.generateRay(pos, screen);
-        screen.setPixel(pos, rayColor(ray, 0.0, INF, jittered));
-    } else {
-        Vector3 pixel;
-        const size_t n = conf.pathSampleNum;
-        for (int i = 0; i < n; ++i) {
-            Vector2 pos2 = pos + Vector2(randUniform()-0.5, randUniform()-0.5);
-            const Ray ray = scene.camera.generateRay(pos2, screen);
-            pixel += rayColor(ray, 0.0f, INF, jittered) /n;
-        }
-        screen.setPixel(pos, pixel);
-    }
+    const Ray ray = scene.camera.generateRay(pos, screen);
+    const Vector3 pixel = rayColor(ray, 0.0f, INF);
+    screen.setPixel(pos, pixel);
 }
 
-Vector3 RTCPURenderer::rayColor(Ray ray, Float t0, Float t1, const std::vector<Vector2>& jittered,
-                                int depth) {
+Vector3 RTCPURenderer::rayColor(Ray ray, Float t0, Float t1, int depth) {
     RayHit hit;
-    if (depth == 3) {
+    if (depth == 4) {
         return Vector3(0.0f, 0.0f, 0.0f);
     }
     if (testRay(ray, t0, t1, hit)) {
@@ -76,26 +76,35 @@ Vector3 RTCPURenderer::rayColor(Ray ray, Float t0, Float t1, const std::vector<V
                          triangle->vC.normal * bary.z();
         }
         
-        Vector3 direct = material.diffuse;
+        Vector3 direct;
         if (material.refractIndex) {
-            direct = shadeDielectric(ray, hit, material, jittered, depth);
+            direct = shadeDielectric(ray, hit, material, depth);
         } else {
-            direct = shadePhong(ray, hit, material, jittered, depth);
-        }
-        if (!conf.pathtracing) {
-            return direct;
+            direct = shadePhong(ray, hit, material, depth);
         }
 
-		Vector3 dir = ray.dir - 2 * (ray.dir.dot(hit.normal)) * hit.normal;
-		Vector3 w = dir.normalized();
-		Vector3 u = ray.dir.cross(w).normalized();
-		Vector3 v = w.cross(u);
-		Float j1 = randUniform();
-		Float j2 = randUniform();
-		Vector3 rd = cos(2 * PI * j1) * sqrt(j2) * u + sin(2 * PI * j1) * sqrt(j2) * v +
-					 sqrt(1 - j2) * w;
-		Vector3 indirect = rayColor(Ray{ hit.pos, rd }, conf.closeTime, INF, jittered, depth + 1);
-        return direct * material.diffuse + material.diffuse * indirect;
+        Vector3 indirect;
+        Vector3 dir = ray.dir - 2 * (ray.dir.dot(hit.normal)) * hit.normal;
+        Vector3 w = dir.normalized();
+        Vector3 u = ray.dir.cross(w).normalized();
+        Vector3 v = w.cross(u);
+        const auto indirectColor = [&](Float j1, Float j2) {
+            Vector3 rd = cos(2 * PI * j1) * sqrt(j2) * u + sin(2 * PI * j1) * sqrt(j2) * v +
+                         sqrt(1 - j2) * w;
+            return rayColor(Ray{ hit.pos, rd }, conf.closeTime, INF, depth + 1);
+        };
+        if (depth == 0) {
+            const auto jittered = generateJittered(conf.pathSampleNum);
+            Float factorN = 1.0f / (conf.pathSampleNum * conf.pathSampleNum);
+            for (auto& sample : jittered) {
+                Float u = sample.x() / conf.pathSampleNum;
+                Float v = sample.y() / conf.pathSampleNum;
+                indirect += indirectColor(u, v) * factorN;
+            }
+        }  else {
+            indirect = indirectColor(0.0f, 0.0f);
+        }
+        return direct + indirect;
     } else {
         if (scene.environmentMap) {
             Vector2 uv = convertSphereTexcoord(ray.dir);
@@ -105,82 +114,55 @@ Vector3 RTCPURenderer::rayColor(Ray ray, Float t0, Float t1, const std::vector<V
     }
 }
 
-Vector3 RTCPURenderer::shadePhong(Ray ray, RayHit hit, const Material& shade,
-                                  const std::vector<Vector2>& jittered, int depth) {
+Vector3 RTCPURenderer::shadePhong(Ray ray, RayHit hit, const Material& shade, int depth) {
 	RayHit dummyHit;
-    if (conf.pathtracing) {
-        Vector3 pixel;
-        Vector3 Le = Vector3(0xfff9c9);
-        Vector3 ko = ray.dir - 2 * (ray.dir.dot(hit.normal)) * hit.normal;
-        for (auto& [_, l] : scene.lightSystem.lights) {
-            Vector3 ki;
-            Float intensity;
-            if (auto light = l.get<AreaLight>()) {
-                Float u = randUniform();
-                Float v = randUniform();
+    Vector3 pixel;
+    Vector3 Le = Vector3(0xfff9c9);
+    Vector3 ko = ray.dir - 2 * (ray.dir.dot(hit.normal)) * hit.normal;
+    for (auto& [_, l] : scene.lightSystem.lights) {
+        Vector3 ki;
+        Float intensity;
+        if (auto light = l.get<AreaLight>()) {
+            const auto shadeColor = [&](Float u, Float v) {
                 Vector3 lightPos = light->pos + u * light->edge1 + v * light->edge2;
                 Vector3 lightN = light->edge1.cross(light->edge2).normalized();
                 Vector3 d = lightPos - hit.pos;
                 /*if (d.dot(lightN) > 0) {
-                    lightN *= -1; 
+                    lightN *= -1;
                 }*/
-                intensity = clamp(light->intensity / d.norm2(), 0.0f, 20.0f);
+                intensity = light->intensity / d.norm2();
                 ki = d.normalized();
-                if (!testRay(Ray{ hit.pos, d, false }, conf.closeTime, 1.0f - conf.closeEpsillon, dummyHit)) {
+                if (!testRay(Ray{ hit.pos, d, false }, conf.closeTime, 1.0f - conf.closeEpsillon,
+                             dummyHit)) {
                     Float p = shade.brdf(ko, ki);
-                    Float cosinTerms = std::max(hit.normal.dot(d), 0.0f) * std::max(-lightN.dot(d), 0.0f);
-                    pixel += intensity * p * Le * cosinTerms / (d.norm2()* d.norm2());
+                    Float cosinTerms =
+                        std::max(hit.normal.dot(d), 0.0f) * std::max(-lightN.dot(d), 0.0f);
+                    return intensity * p * Le * cosinTerms / (d.norm2() * d.norm2()) * shade.diffuse;
                 }
-            } else {
-                l.unwrap(hit.pos, ki, intensity);
-                // TODO
-            }
-            if (shade.idealReflect) {
-                Vector3 dir = ray.dir - 2 * (ray.dir.dot(hit.normal)) * hit.normal;
-                pixel += *shade.idealReflect *
-                         rayColor(Ray{ hit.pos, dir }, conf.closeTime, INF, jittered, depth + 1);
-            }
-        }
-
-        return pixel;
-    } else {
-        Vector3 pixel = scene.lightSystem.ambientIntensity * shade.ambient;
-        const auto shadeColor = [&](const Vector3& lightV, Float intensity) {
-            if (!testRay(Ray{ hit.pos, lightV, true }, conf.closeTime, 1 - 0.0001, dummyHit)) {
-                Vector3 h = (-1 * ray.dir.normalized() + lightV.normalized()).normalized();
-                Float phongFactor = std::max(0.0f, lightV.dot(hit.normal));
-                Float specFactor = std::max(0.0f, h.dot(hit.normal));
-                pixel +=  (intensity * specFactor * shade.diffuse +
-                                      pow(phongFactor, shade.phong) * shade.specular);
-            }
-        };
-        for (auto& [_, l] : scene.lightSystem.lights) {
-            Vector3 lightV;
-            Float intensity;
-            if (auto light = l.get<AreaLight>()) {
+                return Vector3(0, 0, 0);
+            };
+            if (depth == 0) {
+                const auto jittered = generateJittered(conf.distSampleNum);
                 for (auto& sample : jittered) {
                     Float u = sample.x() / conf.distSampleNum;
                     Float v = sample.y() / conf.distSampleNum;
-                    Vector3 lightPos = light->pos + u * light->edge1 + v * light->edge2;
-                    lightV = (lightPos - hit.pos);
-                    intensity = light->intensity / lightV.norm();
-                    intensity /= (conf.distSampleNum * conf.distSampleNum);
-                    shadeColor(lightV, intensity);
+                    pixel += shadeColor(u, v) / (conf.distSampleNum * conf.distSampleNum);
                 }
             } else {
-                l.unwrap(hit.pos, lightV, intensity);
-                shadeColor(lightV, intensity);
+                pixel = shadeColor(0.5, 0.5);
             }
+        } else {
+            l.unwrap(hit.pos, ki, intensity);
+            // TODO
         }
-
         if (shade.idealReflect) {
             Vector3 dir = ray.dir - 2 * (ray.dir.dot(hit.normal)) * hit.normal;
             pixel += *shade.idealReflect *
-                     rayColor(Ray{ hit.pos, dir }, conf.closeTime, INF, jittered, depth + 1);
+                     rayColor(Ray{ hit.pos, dir }, conf.closeTime, INF, depth + 1);
         }
-
-        return pixel;
     }
+
+    return pixel;
 }
 
 std::vector<Vector2> RTCPURenderer::generateJittered(int n) {
@@ -239,8 +221,7 @@ std::vector<Vector2> RTCPURenderer::generateJittered(int n) {
 // I(s) = I(0)e^(ln(a)s)
 // we just supply whole ln(a) as parameter (folded)
 // the parameter is the material.refractReflectance
-Vector3 RTCPURenderer::shadeDielectric(Ray ray, RayHit hit, const Material& shade,
-                                       const std::vector<Vector2>& jittered, int depth) {
+Vector3 RTCPURenderer::shadeDielectric(Ray ray, RayHit hit, const Material& shade, int depth) {
     hit.normal.normalize();
     ray.dir.normalize();
     Vector3 r =
@@ -260,15 +241,15 @@ Vector3 RTCPURenderer::shadeDielectric(Ray ray, RayHit hit, const Material& shad
         if (refractRay(ray, -1 * hit.normal, 1 / *shade.refractIndex, t)) {
             c = t.dot(hit.normal);
         } else {
-            return k * rayColor(Ray{ hit.pos, r }, conf.closeTime, INF, jittered, depth);
+            return k * rayColor(Ray{ hit.pos, r }, conf.closeTime, INF, depth + 1);
         }
     }
     Float a = (*shade.refractIndex - 1);
     Float b = (*shade.refractIndex + 1);
     Float R0 = (a * a) / (b * b);
     Float R = R0 + (1 - R0) * pow(1 - c, 5.0f);
-    Vector3 reflectC = rayColor(Ray{ hit.pos, r }, conf.closeTime, INF, jittered, depth+1);
-    Vector3 refractC = rayColor(Ray{ hit.pos, t }, conf.closeTime, INF, jittered, depth);
+    Vector3 reflectC = rayColor(Ray{ hit.pos, r }, conf.closeTime, INF, depth+1);
+    Vector3 refractC = rayColor(Ray{ hit.pos, t }, conf.closeTime, INF, depth + 1);
     return k * (R * reflectC + (1 - R) * refractC);
 }
 
@@ -286,6 +267,7 @@ bool RTCPURenderer::refractRay(Ray ray, Vector3 normal, Float index, Vector3& ou
 }
 
 bool RTCPURenderer::testRay(Ray ray, Float t0, Float t1, RayHit& hit) {
+    ++processedRays;
     const auto testGeomFunc = [&](const Geometry* geom, Ray ray, Float t0, Float t1, RayHit& hit) {
         hit.geom = geom;
         if (ray.isShadow && geom->material().ignoreShadow) {

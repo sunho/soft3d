@@ -16,28 +16,19 @@ struct RayHit {
 };
 
 struct BoundingRect {
-    Float minX{ 0.0f };
-    Float minY{ 0.0f };
-    Float minZ{ 0.0f };
-    Float maxX{ 0.0f };
-    Float maxY{ 0.0f };
-    Float maxZ{ 0.0f };
+    Vector3 min{};
+    Vector3 max{};
 
     BoundingRect operator+(const BoundingRect& other) const {
-        BoundingRect rect { std::min(minX, other.minX), std::min(minY, other.minY),
-                             std::min(minZ, other.minZ), std::max(maxX, other.maxX),
-                             std::max(maxY, other.maxY), std::max(maxZ, other.maxZ) };
+        BoundingRect rect { Vector3(std::min(min[0], other.min[0]), std::min(min[1], other.min[1]),
+                             std::min(min[2], other.min[2])), Vector3(std::max(max[0], other.max[0]),
+                             std::max(max[1], other.max[1]), std::max(max[2], other.max[2])) };
+        
         return rect;
     }
 
     Float minComp(int axis) const {
-        if (axis == 0) {
-            return minX;
-        } else if (axis == 1) {
-            return minY;
-        } else {
-            return minZ;
-        }
+        return min[axis];
     }
 
     // Assuming ray.dir.x y z >= 1
@@ -53,29 +44,46 @@ struct BoundingRect {
     // for hit case: t_min = -inf t_max = inf (-inf,inf) -> every hit
     // for NaN -> conditions will be evaluated as false <- this case is just taken as hit actually
     // as IEEE rule
-    bool hit(const Ray& ray) const {
-        Float facx = 1.0 / ray.dir.x();
-        Float tminX = (minX - ray.origin.x()) * facx;
-        Float tmaxX = (maxX - ray.origin.x()) * facx;
+    // ---
+    // fast 
+    // clip tims intervals by each parallel plane
+    // when we merge each clipped plane we do max(start,start), min(end,end)
+    // note that when they are not overlapping 
+    // start and end point get "reversed"
+    inline bool hit(const Ray& ray, const Vector3& invDir) const {
+        // This is slower somehow
+        /*Vector3 tt = min;
+        tt -= ray.origin;
+        tt /= ray.dir;
+        Vector3 tt2 = max;
+        tt2 -= ray.origin;
+        tt2 /= ray.dir;
+        Vector3 tmin = tt.min(tt2);
+        Vector3 tmax = tt.max(tt2);
+        Float clipmin = tmin.hmax();
+        Float clipmax = tmax.hmin();
+        if (clipmax < 0.0f || clipmin > clipmax)
+            return false;
+        return true;*/
+        Float tminX = (min[0] - ray.origin.x()) * invDir.x();
+        Float tmaxX = (max[0] - ray.origin.x()) * invDir.x();
         if (ray.dir.x() < 0) {
             std::swap(tminX, tmaxX);
         }
-        Float facy = 1.0 / ray.dir.y();
-        Float tminY = (minY - ray.origin.y()) * facy;
-        Float tmaxY = (maxY - ray.origin.y()) * facy;
+        Float tminY = (min[1] - ray.origin.y()) * invDir.y();
+        Float tmaxY = (max[1] - ray.origin.y()) * invDir.y();
         if (ray.dir.y() < 0) {
             std::swap(tminY, tmaxY);
         }
         if (tminX > tmaxY || tmaxX < tminY) {
             return false;
         }
-        Float facz = 1.0 / ray.dir.z();
-        Float tminZ = (minZ - ray.origin.z()) * facz;
-        Float tmaxZ = (maxZ - ray.origin.z()) * facz;
+        Float tminZ = (min[2] - ray.origin.z()) * invDir.z();
+        Float tmaxZ = (max[2] - ray.origin.z()) * invDir.z();
         if (ray.dir.z() < 0) {
             std::swap(tminZ, tmaxZ);
         }
-        if (tminX > tmaxZ || tmaxX < tminZ) {
+        if (tminX > tmaxZ || tmaxX < tminZ || tminY > tmaxZ || tminZ > tmaxY) {
             return false;
         } else {
             return true;
@@ -83,6 +91,6 @@ struct BoundingRect {
     }
 
     Vector3 mid() const {
-        return Vector3((minX + maxX) / 2.0f, (minY + maxY) / 2.0f, (minZ + maxZ) / 2.0f);
+        return (min + max) / 2.0f;
     }
 };

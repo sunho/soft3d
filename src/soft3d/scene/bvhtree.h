@@ -50,19 +50,20 @@ struct BvhTree {
     }
 
     bool testRay(Ray ray, Float t0, Float t1, RayHit& hit, const LeafTestFunc& func) {
-        return testRayInternal(0, ray, t0, t1, hit, func);
+        Vector3 invDir(1.0f / ray.dir.x(), 1.0f / ray.dir.y(), 1.0f / ray.dir.z());
+        return testRayInternal(0, ray, invDir, t0, t1, hit, func);
     }
 
   private:
-    bool testRayInternal(int offset, const Ray& ray, Float t0, Float t1, RayHit& hit,
+    bool testRayInternal(int offset, const Ray& ray, const Vector3& invDir, Float t0, Float t1, RayHit& hit,
                          const LeafTestFunc& func) {
         BvhNode* node = &nodes[offset];
-        if (node->rect.hit(ray)) {
+        if (node->rect.hit(ray, invDir)) {
             if (node->box) {
                 RayHit leftHit;
                 RayHit rightHit;
-                const bool leftTest = testRayInternal(offset * 2 + 1, ray, t0, t1, leftHit, func);
-                const bool rightTest = testRayInternal(offset * 2 + 2, ray, t0, t1, rightHit, func);
+                const bool leftTest = testRayInternal(offset * 2 + 1, ray, invDir, t0, t1, leftHit, func);
+                const bool rightTest = testRayInternal(offset * 2 + 2, ray, invDir, t0, t1, rightHit, func);
                 if (leftTest && rightTest) {
                     if (leftHit.time < rightHit.time) {
                         hit = leftHit;

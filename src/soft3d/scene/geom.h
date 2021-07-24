@@ -112,47 +112,39 @@ struct Geometry {
         BoundingRect out;
         std::visit(
             overloaded{ [&](const PlainSphere& sphere) {
-                           out.minX = sphere.center.x() - sphere.radius;
-                           out.minY = sphere.center.y() - sphere.radius;
-                           out.minZ = sphere.center.z() - sphere.radius;
-                           out.maxX = sphere.center.x() + sphere.radius;
-                           out.maxY = sphere.center.y() + sphere.radius;
-                           out.maxZ = sphere.center.z() + sphere.radius;
+                           out.min = sphere.center - sphere.radius;
+                           out.max = sphere.center + sphere.radius;
                        },
                         [&](const Sphere& sphere) {
-                            out.minX = sphere.center.x() - sphere.radius;
-                            out.minY = sphere.center.y() - sphere.radius;
-                            out.minZ = sphere.center.z() - sphere.radius;
-                            out.maxX = sphere.center.x() + sphere.radius;
-                            out.maxY = sphere.center.y() + sphere.radius;
-                            out.maxZ = sphere.center.z() + sphere.radius;
+                           out.min = sphere.center - sphere.radius;
+                           out.max = sphere.center + sphere.radius;
                         },
                         [&](const PlainTriangle& triangle) {
-                            out.minX = std::min({ triangle.curve.pA.x(), triangle.curve.pB.x(),
+                            out.min[0] =  std::min({ triangle.curve.pA.x(), triangle.curve.pB.x(),
                                                   triangle.curve.pC.x() });
-                            out.minY = std::min({ triangle.curve.pA.y(), triangle.curve.pB.y(),
+                            out.min[1] = std::min({ triangle.curve.pA.y(), triangle.curve.pB.y(),
                                                   triangle.curve.pC.y() });
-                            out.minZ = std::min({ triangle.curve.pA.z(), triangle.curve.pB.z(),
+                            out.min[2] = std::min({ triangle.curve.pA.z(), triangle.curve.pB.z(),
                                                   triangle.curve.pC.z() });
-                            out.maxX = std::max({ triangle.curve.pA.x(), triangle.curve.pB.x(),
+                            out.max[0] = std::max({ triangle.curve.pA.x(), triangle.curve.pB.x(),
                                                   triangle.curve.pC.x() });
-                            out.maxY = std::max({ triangle.curve.pA.y(), triangle.curve.pB.y(),
+                            out.max[1] = std::max({ triangle.curve.pA.y(), triangle.curve.pB.y(),
                                                   triangle.curve.pC.y() });
-                            out.maxZ = std::max({ triangle.curve.pA.z(), triangle.curve.pB.z(),
+                            out.max[2] = std::max({ triangle.curve.pA.z(), triangle.curve.pB.z(),
                                                   triangle.curve.pC.z() });
                         },
                         [&](const Triangle& triangle) {
-                            out.minX = std::min({ triangle.curve.pA.x(), triangle.curve.pB.x(),
+                            out.min[0] = std::min({ triangle.curve.pA.x(), triangle.curve.pB.x(),
                                                   triangle.curve.pC.x() });
-                            out.minY = std::min({ triangle.curve.pA.y(), triangle.curve.pB.y(),
+                            out.min[1] = std::min({ triangle.curve.pA.y(), triangle.curve.pB.y(),
                                                   triangle.curve.pC.y() });
-                            out.minZ = std::min({ triangle.curve.pA.z(), triangle.curve.pB.z(),
+                            out.min[2] = std::min({ triangle.curve.pA.z(), triangle.curve.pB.z(),
                                                   triangle.curve.pC.z() });
-                            out.maxX = std::max({ triangle.curve.pA.x(), triangle.curve.pB.x(),
+                            out.max[0] = std::max({ triangle.curve.pA.x(), triangle.curve.pB.x(),
                                                   triangle.curve.pC.x() });
-                            out.maxY = std::max({ triangle.curve.pA.y(), triangle.curve.pB.y(),
+                            out.max[1] = std::max({ triangle.curve.pA.y(), triangle.curve.pB.y(),
                                                   triangle.curve.pC.y() });
-                            out.maxZ = std::max({ triangle.curve.pA.z(), triangle.curve.pB.z(),
+                            out.max[2] = std::max({ triangle.curve.pA.z(), triangle.curve.pB.z(),
                                                   triangle.curve.pC.z() });
                         } },
             data);
