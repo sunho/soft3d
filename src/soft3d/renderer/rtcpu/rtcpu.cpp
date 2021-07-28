@@ -11,6 +11,11 @@ Scene& RTCPURenderer::sceneRef() {
     return scene;
 }
 
+Float fresnel(Float R0, Float cosTh) {
+    Float a = (1 - cosTh);
+    return R0 + (1 - R0) * (a*a*a*a*a);
+}
+
 void RTCPURenderer::render(Image& screen) {
     threadPool.setJobFunc([&](Vector2 pos) { renderPixel(pos, screen); });
     scene.geoms.prepare();
@@ -36,133 +41,159 @@ void RTCPURenderer::render(Image& screen) {
     threadPool.flush(conf.threadNum);
     quit.store(true, std::memory_order_acquire);
     timerThread.join();
-    screen.sigmoidToneMap();
+    screen.sigmoidToneMap(0.05);
 }
 
 void RTCPURenderer::renderPixel(const Vector2& pos, Image& screen) {
     const Ray ray = scene.camera.generateRay(pos, screen);
-    const Vector3 pixel = rayColor(ray, 0.0f, INF);
+    Vector3 pixel;
+    for (int i = 0; i < conf.pathSampleNum; ++i) {
+        pixel += rayColor(ray, Vector2(0.0f,0.0f));
+    }
+    pixel /= conf.pathSampleNum;
     screen.setPixel(pos, pixel);
 }
 
-Vector3 RTCPURenderer::rayColor(Ray ray, Float t0, Float t1, int depth) {
+Vector3 RTCPURenderer::rayColor(Ray ray, Vector2 sample) {
+    // L_s(ko) = brdf(kj,ko)L_s(kj)cos theta_j/pdf(k_j)
+    // For the last vertex we convert this form into surface area form so that we can sample area
+    // light L_s(last) = L_e(x')cos theta cos theta_j
+    int bounce = 0;
+    Vector3 weight(1.0f,1.0f,1.0f);
+    Float t0 = 0.0f;
+    Float t1 = INF;
+    Vector3 pixel;
+
+    const auto getTBNBasis = [&](Vector3 normal, Vector3 dir) {
+        Vector3 w = normal.normalized();
+        Vector3 u = w.x() > w.y() ? Vector3(0, 1, 0).cross(w).normalized() : Vector3(1, 0, 0).cross(w).normalized();
+        Vector3 v = w.cross(u);
+        return Basis{ u, v, w };
+    };
     RayHit hit;
-    if (depth == 4) {
-        return Vector3(0.0f, 0.0f, 0.0f);
-    }
-    if (testRay(ray, t0, t1, hit)) {
-        Material material;
-        if (auto sphere = hit.geom->get<PlainSphere>()) {
-            material = sphere->material;
-        } else if (auto triangle = hit.geom->get<PlainTriangle>()) {
-            material = triangle->material;
-        } else if (auto sphere = hit.geom->get<Sphere>()) {
-            material = sphere->material;
-            Vector2 uv = convertSphereTexcoord(hit.pos - sphere->center);
-            Vector3 color = samplePoint(*scene.textures.get(sphere->texture), uv);
-            material.diffuse = color;
-            material.ambient = color;
-        } else if (auto triangle = hit.geom->get<Triangle>()) {
-            material = triangle->material;
-            Vector3 bary = triangle->curve(hit.pos);
-            Vector2 uv = triangle->vA.tex * bary.x() + triangle->vB.tex * bary.y() +
-                         triangle->vC.tex * bary.z();
-            if (triangle->texture) {
-                Vector3 color = sampleBilinear(*scene.textures.get(triangle->texture), uv);
-                material.diffuse = color;
-                material.ambient = color;
-            }
-            hit.normal = triangle->vA.normal * bary.x() + triangle->vB.normal * bary.y() +
-                         triangle->vC.normal * bary.z();
+    Material material;
+    Basis TBN;
+    bool wasSpecular=false;
+    Vector3 ko;
+    while (true) {
+        if (!testRayAndFetchTex(ray, t0, t1, hit, material)) {
+            Vector2 uv = convertSphereTexcoord(ray.dir);
+            Vector3 Le = PI*3.0f*sampleBilinear(*scene.textures.get(scene.environmentMap), uv, false);
+            pixel += weight * Le;
+            break;
+        }
+        if (wasSpecular) {
+            Vector3 Le = sampleLight(material, hit.pos, hit.normal, ko, TBN); 
+            pixel += weight * Le;
+        }
+        Vector3 invDir = -1*ray.dir;
+        TBN = getTBNBasis(hit.normal, invDir);
+        // normal coord = Basis^T * worldCoord
+        // = (u . dir, v . dir, w. dir)
+        ko = Vector3(TBN.u.dot(invDir), TBN.v.dot(invDir), TBN.w.dot(invDir));
+        Vector3 ki;
+        Float pdf;
+        Vector3 brdf = sampleBRDF(material, ko, ki, pdf, wasSpecular);
+        t0 = conf.closeTime;
+        ray.origin = hit.pos;
+        auto nextDir = ki.x() * TBN.u + ki.y() * TBN.v + ki.z() * TBN.w;
+        ray.dir = nextDir;
+        if (pdf == 0.0f) {
+            return Vector3(0.0f, 0.0f, 0.0f);
         }
         
-        Vector3 direct;
-        if (material.refractIndex) {
-            direct = shadeDielectric(ray, hit, material, depth);
-        } else {
-            direct = shadePhong(ray, hit, material, depth);
+        if (!wasSpecular) {
+            Vector3 Le = sampleLight(material, hit.pos, hit.normal, ko, TBN); 
+            pixel += weight * Le;
         }
 
-        Vector3 indirect;
-        Vector3 dir = ray.dir - 2 * (ray.dir.dot(hit.normal)) * hit.normal;
-        Vector3 w = dir.normalized();
-        Vector3 u = ray.dir.cross(w).normalized();
-        Vector3 v = w.cross(u);
-        const auto indirectColor = [&](Float j1, Float j2) {
-            Vector3 rd = cos(2 * PI * j1) * sqrt(j2) * u + sin(2 * PI * j1) * sqrt(j2) * v +
-                         sqrt(1 - j2) * w;
-            return rayColor(Ray{ hit.pos, rd }, conf.closeTime, INF, depth + 1);
-        };
-        if (depth == 0) {
-            const auto jittered = generateJittered(conf.pathSampleNum);
-            Float factorN = 1.0f / (conf.pathSampleNum * conf.pathSampleNum);
-            for (auto& sample : jittered) {
-                Float u = sample.x() / conf.pathSampleNum;
-                Float v = sample.y() / conf.pathSampleNum;
-                indirect += indirectColor(u, v) * factorN;
-            }
-        }  else {
-            indirect = indirectColor(0.0f, 0.0f);
-        }
-        return direct + indirect;
-    } else {
-        if (scene.environmentMap) {
-            Vector2 uv = convertSphereTexcoord(ray.dir);
-            return sampleBilinear(*scene.textures.get(scene.environmentMap), uv, false);
-        }
-        return Vector3(1.0f, 1.0f, 1.0f);
-    }
-}
-
-Vector3 RTCPURenderer::shadePhong(Ray ray, RayHit hit, const Material& shade, int depth) {
-	RayHit dummyHit;
-    Vector3 pixel;
-    Vector3 Le = Vector3(0xfff9c9);
-    Vector3 ko = ray.dir - 2 * (ray.dir.dot(hit.normal)) * hit.normal;
-    for (auto& [_, l] : scene.lightSystem.lights) {
-        Vector3 ki;
-        Float intensity;
-        if (auto light = l.get<AreaLight>()) {
-            const auto shadeColor = [&](Float u, Float v) {
-                Vector3 lightPos = light->pos + u * light->edge1 + v * light->edge2;
-                Vector3 lightN = light->edge1.cross(light->edge2).normalized();
-                Vector3 d = lightPos - hit.pos;
-                /*if (d.dot(lightN) > 0) {
-                    lightN *= -1;
-                }*/
-                intensity = light->intensity / d.norm2();
-                ki = d.normalized();
-                if (!testRay(Ray{ hit.pos, d, false }, conf.closeTime, 1.0f - conf.closeEpsillon,
-                             dummyHit)) {
-                    Float p = shade.brdf(ko, ki);
-                    Float cosinTerms =
-                        std::max(hit.normal.dot(d), 0.0f) * std::max(-lightN.dot(d), 0.0f);
-                    return intensity * p * Le * cosinTerms / (d.norm2() * d.norm2()) * shade.diffuse;
-                }
-                return Vector3(0, 0, 0);
-            };
-            if (depth == 0) {
-                const auto jittered = generateJittered(conf.distSampleNum);
-                for (auto& sample : jittered) {
-                    Float u = sample.x() / conf.distSampleNum;
-                    Float v = sample.y() / conf.distSampleNum;
-                    pixel += shadeColor(u, v) / (conf.distSampleNum * conf.distSampleNum);
-                }
-            } else {
-                pixel = shadeColor(0.5, 0.5);
-            }
-        } else {
-            l.unwrap(hit.pos, ki, intensity);
-            // TODO
-        }
-        if (shade.idealReflect) {
-            Vector3 dir = ray.dir - 2 * (ray.dir.dot(hit.normal)) * hit.normal;
-            pixel += *shade.idealReflect *
-                     rayColor(Ray{ hit.pos, dir }, conf.closeTime, INF, depth + 1);
+        weight *= brdf * hit.normal.dot(invDir) / pdf;
+        ++bounce;
+        if (bounce == 3) {
+            break;
         }
     }
 
     return pixel;
+}
+
+Vector3 RTCPURenderer::sampleLight(const Material& material, const Vector3& pos, const Vector3& normal, const Vector3& ko, const Basis& TBN) {
+    RayHit hit;
+    auto l = scene.lightSystem.lights.draw();
+    if (auto light = l->get<AreaLight>()) {
+        Float u = randUniform();
+        Float v = randUniform();
+
+        Vector3 lightPos = light->pos + u * light->edge1 + v * light->edge2;
+        Vector3 lightN = light->edge1.cross(light->edge2).normalized();
+        Vector3 d = lightPos - pos;
+        Float intensity = (light->intensity) / d.norm2();
+        Vector3 dd = d.normalized();
+        Vector3 ki = Vector3(TBN.u.dot(dd), TBN.v.dot(dd), TBN.w.dot(dd));
+        if (!testRay(Ray{ pos, d, false }, conf.closeTime, 1.0f - conf.closeEpsillon, hit)) {
+            Vector3 Le = Vector3(1.0f, 1.0f, 1.0f) * intensity;
+            Float cosTh = clamp(normal.dot(dd), 0.0f, 1.0f);
+            Float cosThd = clamp(-lightN.dot(dd), 0.0f, 1.0f);
+            Vector3 brdf = evalBRDF(material, ko, ki);
+            return Le * cosTh * cosThd * brdf / d.norm2();
+        }
+    }
+    return Vector3(0.0f, 0.0f, 0.0f);
+}
+
+Vector3 RTCPURenderer::sampleBRDF(const Material& material, const Vector3& ko, Vector3& ki, Float& pdf, bool& specular) { 
+    specular = false;
+    if (auto brdf = std::get_if<LambertianBRDF>(&material.brdf)) {
+        ki = sampleHemisphere(Vector2(randUniform(), randUniform()));
+        pdf = ki.dot(Vector3(0, 0, 1)) / PI;
+    } else if (auto brdf = std::get_if<SpecularBRDF>(&material.brdf)) {
+        ki = Vector3(-ko.x(), -ko.y(), ko.z());
+        specular = true;
+        pdf = 1.0f;
+    } else if (auto brdf = std::get_if<CoupledBRDF>(&material.brdf)) {
+        if (randUniform() < 0.5f) {
+            ki = Vector3(-ko.x(), -ko.y(), ko.z());
+            specular = true;
+            pdf = 1.0f/2.0f;
+        } else {
+            ki = sampleHemisphere(Vector2(randUniform(), randUniform()));
+            pdf = ki.dot(Vector3(0, 0, 1)) / (2*PI);
+        }
+    }
+    return evalBRDF(material, ko, ki);
+}
+
+Vector3 RTCPURenderer::evalBRDF(const Material& material, const Vector3& ko, const Vector3& ki) {
+    if (auto brdf = std::get_if<LambertianBRDF>(&material.brdf)) {
+        return material.diffuse * (1.0f / PI);
+    } else if (auto brdf = std::get_if<SpecularBRDF>(&material.brdf)) {
+        Float cosTh = ko.dot(Vector3(0,0,1));
+        if (cosTh == 0.0f) {
+            return Vector3(0, 0, 0);
+        }
+        return Vector3(1,1,1) * fresnel(brdf->R0, cosTh) / cosTh;
+    } else if (auto brdf = std::get_if<CoupledBRDF>(&material.brdf)) {
+        Vector3 half = (ko +  ki).normalized();
+        Float cosTh = clamp(Vector3(0,0,1).dot(ko), 0.0f, 1.0f);
+        Float cosThd = clamp(Vector3(0,0,1).dot(ki), 0.0f, 1.0f);
+        Float nh = clamp(Vector3(0,0,1).dot(half),0.0f,1.0f);
+        Float a = nh * brdf->roughness;
+        Float k = brdf->roughness / (1.0f - nh * nh + a * a);
+        Float specBRDF = k * k * (1.0f / PI); // ndf
+        Float R0 = brdf->R0;
+        Float K = 21.0f / (20.0f * PI * (1.0f - R0));
+        Float cosThTerm = pow(1.0f - cosTh, 5.0f);
+        Float cosThdTerm = pow(1.0f - cosThd, 5.0f);
+        return (R0 + cosThTerm * (1.0f - R0)) * specBRDF* Vector3(1,1,1) +
+            K* material.diffuse*(1.0f - cosThTerm) * (1.0f - cosThdTerm);
+    }
+    return material.diffuse * (1.0f / PI);
+}
+Vector3 RTCPURenderer::sampleHemisphere(const Vector2& sample) {
+    Float u = cos(2 * PI * sample.x()) * sqrt(sample.y());
+    Float v = sin(2 * PI * sample.x()) * sqrt(sample.y());
+    Float w = sqrt(1 - sample.y());
+    return Vector3(u, v, w);
 }
 
 std::vector<Vector2> RTCPURenderer::generateJittered(int n) {
@@ -174,83 +205,6 @@ std::vector<Vector2> RTCPURenderer::generateJittered(int n) {
         }
     }
     return out;
-}
-
-// 1. We find refraction ray according to Snell's law
-// 2. Total internal reflection can happen, in step 1. In that case, refraction ray is not
-// generated. Just relfect it.
-// 3. Then we calculate the amount of light we must reflect and vice versa (refraction amount)
-// according to Schlick approximation
-// 4. Lastly, we simulate impurities by Beer's law. (light lose intensity as it travels)
-// ------------------
-// 1. Finding refraction ray
-// n sin theta = n_t sin phi
-// We find sin by using identity sin^2 + cos^2 = 1
-// By substituting 1 - sin^2 and solving equation yields
-// cos^2 phi = 1 - (n^2(1-cos^2 theta))/n_t^2
-// with this in hands, we examine how to calculate the refraction ray by that qunatity
-// Notice that n and b (the vector tangent to the surface) forms orthogonal basis
-// and within this basis, refraction ray is (-cos phi, sin phi)
-// thus, t = sin phi b - cos phi n
-// we can get b by using the fact d is coplaner to the basis
-// solving the equation d = B*coord
-// b = (d + n cos theta)/sin theta
-// Solving t using all the infoes
-// t = n(d+n cos theta)/n_t - n cos phi =
-// n(d-d(d.n))/n_t - n sqrt(1-n^2(1-(d.n)^2)/n_t^2)
-// We assume that n = 1.0 (air)
-// and n_t is the parameter (material.refractIndex)
-// 2. Total internal reflection
-// Total internal reflection happens when the sqrt term is complex number
-// just check if in sqrt(x) x is negative
-// 3. Schlick approximation
-// The method approximates Fresnel equations by following model
-// R(theta) = R_0 + (1-R_0)(1-cos theta)^5
-// where R_0 is ((n_t-1)/(n_t+1))^2
-// this will give the amount of light we should reflect
-// note that it only varies by the incident angle
-// 4. Beer's law
-// Beer's law is that
-// dI = -CIdx
-// where dx is the distance from the surface I is the light and C is parameter
-// solving this differnetial equation (it's classical dy/dx = ky equation)
-// I = k exp(-Cx)
-// I(0) = I_0 -> I(x) = I_0exp(-Cx)
-// I(1) = aI(0) -> I0a = I_0exp(-C)
-// -C = lna
-// I(s) = I(0)e^(ln(a)s)
-// we just supply whole ln(a) as parameter (folded)
-// the parameter is the material.refractReflectance
-Vector3 RTCPURenderer::shadeDielectric(Ray ray, RayHit hit, const Material& shade, int depth) {
-    hit.normal.normalize();
-    ray.dir.normalize();
-    Vector3 r =
-        (ray.dir - 2 * (ray.dir.dot(hit.normal)) * hit.normal).normalized();  // reflection ray
-    Vector3 k;                          // intensity approximated
-    Vector3 t;                          // refraction ray
-    Float c;                            // cos theta
-    if (ray.dir.dot(hit.normal) < 0) {  // backside
-        refractRay(ray, hit.normal, *shade.refractIndex, t);
-        c = -ray.dir.dot(hit.normal);
-        k = Vector3(1.0, 1.0, 1.0);
-    } else {
-        Float kx = exp(-shade.refractReflectance.x() * hit.time);
-        Float ky = exp(-shade.refractReflectance.y() * hit.time);
-        Float kz = exp(-shade.refractReflectance.z() * hit.time);
-        k = Vector3(kx, ky, kz);
-        if (refractRay(ray, -1 * hit.normal, 1 / *shade.refractIndex, t)) {
-            c = t.dot(hit.normal);
-        } else {
-            return k * rayColor(Ray{ hit.pos, r }, conf.closeTime, INF, depth + 1);
-        }
-    }
-    Float a = (*shade.refractIndex - 1);
-    Float b = (*shade.refractIndex + 1);
-    Float R0 = (a * a) / (b * b);
-    Float R = R0 + (1 - R0) * pow(1 - c, 5.0f);
-    Vector3 reflectC = rayColor(Ray{ hit.pos, r }, conf.closeTime, INF, depth+1);
-    Vector3 refractC = rayColor(Ray{ hit.pos, t }, conf.closeTime, INF, depth + 1);
-    return k * (R * reflectC + (1 - R) * refractC);
 }
 
 // Calculate refraction ray
@@ -277,15 +231,45 @@ bool RTCPURenderer::testRay(Ray ray, Float t0, Float t1, RayHit& hit) {
             return testSphereRay(sphere->center, sphere->radius, ray, t0, t1, hit);
         } else if (auto triangle = geom->get<PlainTriangle>()) {
             return testTriangleRay(triangle->curve, ray, t0, t1, hit,
-                                   !triangle->material.refractIndex);
+                                   true);
         } else if (auto sphere = geom->get<Sphere>()) {
             return testSphereRay(sphere->center, sphere->radius, ray, t0, t1, hit);
         } else if (auto triangle = geom->get<Triangle>()) {
             return testTriangleRay(triangle->curve, ray, t0, t1, hit,
-                                   !triangle->material.refractIndex);
+                                   true);
         }
     };
     return scene.geoms.testRay(ray, t0, t1, hit, testGeomFunc);
+}
+
+bool RTCPURenderer::testRayAndFetchTex(Ray ray, Float t0, Float t1, RayHit& hit,
+                                       Material& material) {
+    if (testRay(ray, t0, t1, hit)) {
+        if (auto sphere = hit.geom->get<PlainSphere>()) {
+            material = sphere->material;
+        } else if (auto triangle = hit.geom->get<PlainTriangle>()) {
+            material = triangle->material;
+        } else if (auto sphere = hit.geom->get<Sphere>()) {
+            material = sphere->material;
+            Vector2 uv = convertSphereTexcoord(hit.pos - sphere->center);
+            Vector3 color = samplePoint(*scene.textures.get(sphere->texture), uv);
+            material.diffuse = color;
+        } else if (auto triangle = hit.geom->get<Triangle>()) {
+            material = triangle->material;
+            Vector3 bary = triangle->curve(hit.pos);
+            Vector2 uv = triangle->vA.tex * bary.x() + triangle->vB.tex * bary.y() +
+                         triangle->vC.tex * bary.z();
+            if (triangle->texture) {
+                Vector3 color = sampleBilinear(*scene.textures.get(triangle->texture), uv);
+                material.diffuse = color;
+            }
+            hit.normal = triangle->vA.normal * bary.x() + triangle->vB.normal * bary.y() +
+                         triangle->vC.normal * bary.z();
+        }
+        return true;
+    } else {
+        return false;
+    }
 }
 
 // p(t) = e + t d

@@ -62,7 +62,12 @@ struct AreaLight {
     Vector3 edge2;
 };
 
-using LightData = std::variant<DirectionalLight, PointLight, AreaLight>;
+struct EnvironmentLight {
+    TextureId tex;
+    Float radius;
+};
+
+using LightData = std::variant<DirectionalLight, PointLight, AreaLight, EnvironmentLight>;
 
 struct Light {
     Light() = default;
@@ -111,6 +116,7 @@ struct GScene {
     Camera camera;
     LightSystem lightSystem;
     TextureId environmentMap{ 0 };
+    int envLightId{ 0 } ;
 };
 
 using Scene = GScene<BvhTree>;

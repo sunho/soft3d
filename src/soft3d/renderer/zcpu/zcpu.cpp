@@ -184,7 +184,7 @@ void ZCPURenderer::addDrawTriangleJob(Image& screen, const Triangle3& triangle,
 }
 
 Vector3 ZCPURenderer::shadePlainTriangle(const Vector3& bary, const PlainTriangle& tri) {
-    Vector3 pixel = scene.lightSystem.ambientIntensity * tri.material.ambient;
+    Vector3 pixel = scene.lightSystem.ambientIntensity * tri.material.diffuse;
     Vector3 normal = tri.normal(Vector3());
     Vector3 hit = tri.vA * bary.x() + tri.vB * bary.y() + tri.vC * bary.z();
     Vector3 e = (scene.camera.e - hit).normalized();

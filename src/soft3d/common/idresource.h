@@ -72,17 +72,22 @@ struct IdResourceManager {
     }
 
     void release(int id) {
-        available.insert(id);
-        registered.erase(id);
+        available.push_back(id);
+        registered.erase(std::find(registered.begin(), registered.end(), id));
         resources.erase(id);
     }
 
-    const std::set<int>& ids() {
+    const std::vector<int>& ids() {
         return registered;
     }
 
     inline T* get(int id) {
         return table[id - 1];
+    }
+
+    T* draw() {
+        size_t i = rand() % registered.size();
+        return table[registered[i]-1];
     }
 
     auto begin() {
@@ -98,12 +103,12 @@ struct IdResourceManager {
         if (available.empty()) {
             ++nextId;
             table.push_back(nullptr);
-            registered.insert(nextId);
+            registered.push_back(nextId);
             return nextId;
         }
-        const int out = *available.begin();
-        registered.insert(out);
-        available.erase(available.begin());
+        const int out = *available.end();
+        registered.push_back(out);
+        available.erase(available.end());
         return out;
     }
 
@@ -111,6 +116,6 @@ struct IdResourceManager {
     int nextId{ 0 };
     std::map<int, T> resources;
 
-    std::set<int> available;
-    std::set<int> registered;
+    std::vector<int> available;
+    std::vector<int> registered;
 };

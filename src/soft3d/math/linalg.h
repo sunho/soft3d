@@ -560,6 +560,8 @@ struct Basis {
     Basis(const Matrix& mat)
         : u(mat.sliceColVector3(0)), v(mat.sliceColVector3(1)), w(mat.sliceColVector3(2)) {
     }
+    Basis(Vector3 u, Vector3 v, Vector3 w) : u(u), v(v), w(w) {
+    }
     Vector3 u{ 1.0f, 0.0f, 0.0f };
     Vector3 v{ 0.0f, 1.0f, 0.0f };
     Vector3 w{ 0.0f, 0.0f, 1.0f };

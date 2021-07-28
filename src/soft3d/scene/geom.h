@@ -7,26 +7,26 @@
 #include <optional>
 #include <variant>
 
+struct LambertianBRDF {
+};
 
-using BRDF = std::function<Float(Vector3 ki, Vector3 ke)>;
+struct SpecularBRDF {
+    Float R0;
+};
 
-static Float LambertianBRDF(Vector3 ki, Vector3 ke) {
-    // R / pi
-    // R = directional hemispherical reflectance 
-    return 1.0 / PI;
-}
+struct CoupledBRDF {
+    Float R0{ 0.1f};
+    Float roughness{ 0.5f };
+};
+
+using BRDF = std::variant<SpecularBRDF, CoupledBRDF, LambertianBRDF>;
 
 struct Material {
     Vector3 diffuse;
-    Vector3 ambient;
     Vector3 specular;
-    Float albedo{ 1.0f };
     Float phong{ 100.0 };
-    std::optional<Vector3> idealReflect{ std::nullopt };
-    std::optional<Float> refractIndex{ std::nullopt };
-    Vector3 refractReflectance;
     bool ignoreShadow{ false };
-    BRDF brdf = LambertianBRDF;
+    BRDF brdf = LambertianBRDF{};
 };
 
 

@@ -29,7 +29,7 @@ struct Image {
         return getPixel(x, y);
     }
 
-    void sigmoidToneMap() {
+    void sigmoidToneMap(Float alpha) {
         Float lsum = 0.0;
         Float del = 0.00001; // prevent 0
         Float factor = 1.0f / (width * height);
@@ -39,12 +39,15 @@ struct Image {
         for (size_t j = 0; j < height; ++j) {
             for (size_t i = 0; i < width; ++i) {
                 Float l= getPixel(i, j).dot(c);
-                lsum += factor*log(del + l);
-                lumi.setPixel(i, j, Vector3(l, 0, 0));
+                if (!!l) {
+                    lumi.setPixel(i, j, Vector3(0, 0, 0));
+                } else {
+                    lsum += factor*log(del + l);
+                    lumi.setPixel(i, j, Vector3(l, 0, 0));
+                }
             }
         }
         Float gavg = exp(lsum);
-        Float alpha = 0.05; // parameter
         for (size_t j = 0; j < height; ++j) {
             for (size_t i = 0; i < width; ++i) {
                 Vector3 pixel = getPixel(i, j);
@@ -53,6 +56,30 @@ struct Image {
                 Float g = pixel.y() / (pixel.y() + fxy);
                 Float b = pixel.z() / (pixel.z() + fxy);
                 setPixel(i, j, Vector3(r, g, b));
+            }
+        }
+    }
+
+    void flimToneMap() {
+        const auto hable = [](Vector3 x) {
+            float A = 0.15;
+            float B = 0.50;
+            float C = 0.10;
+            float D = 0.20;
+            float E = 0.02;
+            float F = 0.30;
+
+            return ((x * (A * x + C * B) + D * E) / (x * (A * x + B) + D * F)) - E / F;
+        };
+        Vector3 W(11.2f);
+        float exposure_bias = 2.0f;
+        for (size_t j = 0; j < height; ++j) {
+            for (size_t i = 0; i < width; ++i) {
+                Vector3 pixel = getPixel(i, j);
+                Vector3 curr = hable(pixel * exposure_bias);
+                Vector3 white_scale = Vector3(1.0f) / hable(W);
+                
+                setPixel(i, j, curr * white_scale);
             }
         }
     }
