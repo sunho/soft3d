@@ -183,6 +183,15 @@ struct GVector : public details::ctrp<T, F> {
         out /= other;
         return out;
     }
+    
+    bool hasNan() const {
+        for (size_t i = 0; i < n; ++i) {
+            if (isnan(data[i])) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     inline F dot(const T& other) const {
         T tmp = this->u();

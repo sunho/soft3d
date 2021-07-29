@@ -1,4 +1,5 @@
 #include "rtcpu.h"
+#include <iostream>
 
 RTCPURenderer::RTCPURenderer(RTCPUConfig conf)
     : conf(conf), threadPool(conf.threadNum, conf.maxWidth * conf.maxHeight) {
@@ -41,7 +42,7 @@ void RTCPURenderer::render(Image& screen) {
     threadPool.flush(conf.threadNum);
     quit.store(true, std::memory_order_acquire);
     timerThread.join();
-    screen.sigmoidToneMap(0.05);
+    screen.sigmoidToneMap(0.05f);
 }
 
 void RTCPURenderer::renderPixel(const Vector2& pos, Image& screen) {
@@ -78,7 +79,7 @@ Vector3 RTCPURenderer::rayColor(Ray ray, Vector2 sample) {
     while (true) {
         if (!testRayAndFetchTex(ray, t0, t1, hit, material)) {
             Vector2 uv = convertSphereTexcoord(ray.dir);
-            Vector3 Le = PI*3.0f*sampleBilinear(*scene.textures.get(scene.environmentMap), uv, false);
+            Vector3 Le = sampleBilinear(*scene.textures.get(scene.environmentMap), uv, false);
             pixel += weight * Le;
             break;
         }
@@ -99,15 +100,15 @@ Vector3 RTCPURenderer::rayColor(Ray ray, Vector2 sample) {
         auto nextDir = ki.x() * TBN.u + ki.y() * TBN.v + ki.z() * TBN.w;
         ray.dir = nextDir;
         if (pdf == 0.0f) {
-            return Vector3(0.0f, 0.0f, 0.0f);
+            break;
         }
         
         if (!wasSpecular) {
             Vector3 Le = sampleLight(material, hit.pos, hit.normal, ko, TBN); 
             pixel += weight * Le;
         }
-
         weight *= brdf * hit.normal.dot(invDir) / pdf;
+
         ++bounce;
         if (bounce == 3) {
             break;
@@ -131,7 +132,7 @@ Vector3 RTCPURenderer::sampleLight(const Material& material, const Vector3& pos,
         Vector3 dd = d.normalized();
         Vector3 ki = Vector3(TBN.u.dot(dd), TBN.v.dot(dd), TBN.w.dot(dd));
         if (!testRay(Ray{ pos, d, false }, conf.closeTime, 1.0f - conf.closeEpsillon, hit)) {
-            Vector3 Le = Vector3(1.0f, 1.0f, 1.0f) * intensity;
+            Vector3 Le = Vector3(0xfff9c9) * intensity;
             Float cosTh = clamp(normal.dot(dd), 0.0f, 1.0f);
             Float cosThd = clamp(-lightN.dot(dd), 0.0f, 1.0f);
             Vector3 brdf = evalBRDF(material, ko, ki);
@@ -158,6 +159,37 @@ Vector3 RTCPURenderer::sampleBRDF(const Material& material, const Vector3& ko, V
         } else {
             ki = sampleHemisphere(Vector2(randUniform(), randUniform()));
             pdf = ki.dot(Vector3(0, 0, 1)) / (2*PI);
+        }
+    } else if (auto brdf = std::get_if<AntPhongBRDF>(&material.brdf)) {
+        if (randUniform() < 0.5f) {
+            // Specular
+            Float phi;
+            Vector3 half =
+                sampleHalfVector(Vector2(randUniform(), randUniform()), brdf->nu, brdf->nv, phi);
+            // Convert half vector into ki
+            Float koh = ko.dot(half);
+            ki = 2 * koh * half - ko;
+            if (ki.z() <= 0.0f) {
+                pdf = 0.0f;
+                return Vector3(0, 0, 0);
+            }
+            // Half vector pdf
+            // TODO: we can just memo sqrt(nu+1) and sqrt(nv+1)
+            Float k = sqrt((brdf->nu + 1) * (brdf->nv + 1)) / (2 * PI);
+            Float nh = Vector3(0, 0, 1).dot(half);
+            Float cosPhi = cos(phi);
+            Float sinPhi = sin(phi);
+            Float d = brdf->nu * cosPhi * cosPhi + brdf->nv * sinPhi * sinPhi;
+            // PDF should be multiplied by 1 / |J(ko, h)|
+            // J(ko,h) = 4 * ko.h
+            pdf = k * pow(nh, d) / (4 * koh);
+            pdf *= 0.5f;
+
+        } else {
+            // Diffuse
+            ki = sampleHemisphere(Vector2(randUniform(), randUniform()));
+            pdf = ki.dot(Vector3(0, 0, 1)) / (PI);
+            pdf *= 0.5f;
         }
     }
     return evalBRDF(material, ko, ki);
@@ -186,7 +218,35 @@ Vector3 RTCPURenderer::evalBRDF(const Material& material, const Vector3& ko, con
         Float cosThdTerm = pow(1.0f - cosThd, 5.0f);
         return (R0 + cosThTerm * (1.0f - R0)) * specBRDF* Vector3(1,1,1) +
             K* material.diffuse*(1.0f - cosThTerm) * (1.0f - cosThdTerm);
-    }
+    } else if (auto brdf = std::get_if<AntPhongBRDF>(&material.brdf)) {
+        if (ki.z() <= 0.0f) {
+            return Vector3(0, 0, 0);
+        }
+        Vector3 half = (ko + ki).normalized();
+        Float koh = ko.dot(half);
+        Float kin = Vector3(0,0,1).dot(ki);
+        Float kon = Vector3(0,0,1).dot(ko);
+        Float cos2Th = half.z() * half.z();
+        Float sin2Th = 1.0f - cos2Th;
+        if (sin2Th == 0.0f) {
+            return Vector3(0, 0, 0);
+        }
+        Float cos2Phi = half.x()*half.x() / sin2Th;
+        Float sin2Phi = half.y()*half.y() / sin2Th;
+        Float nh = Vector3(0, 0, 1).dot(half);
+        Float d = (brdf->nu * cos2Phi + brdf->nv * sin2Phi);
+        Float b = koh * std::max(kin, kon);
+        Float k = sqrt((brdf->nu + 1) * (brdf->nv + 1)) / (8 * PI);
+        Float F = fresnel(brdf->Rs, 1.0f-koh);
+        Float dd = pow(nh, d) / b;
+        Vector3 specBRDF = Vector3(1, 1, 1) * k* dd * F;
+        
+        Float cosThTerm = pow(1.0f - kon / 2.0f, 5.0f);
+        Float cosThdTerm = pow(1.0f - kin / 2.0f, 5.0f);
+        Vector3 K = 28.0f * material.diffuse / (23.0f * PI);
+        Vector3 diffuseBRDF = K * (1 - brdf->Rs) * (1 - cosThTerm) * (1 - cosThdTerm);
+        return specBRDF + diffuseBRDF;
+     }
     return material.diffuse * (1.0f / PI);
 }
 Vector3 RTCPURenderer::sampleHemisphere(const Vector2& sample) {
@@ -194,6 +254,40 @@ Vector3 RTCPURenderer::sampleHemisphere(const Vector2& sample) {
     Float v = sin(2 * PI * sample.x()) * sqrt(sample.y());
     Float w = sqrt(1 - sample.y());
     return Vector3(u, v, w);
+}
+
+// we generate half vector according to pdf of ant phong model for 0 < phi < pi/2
+// and map to each quadrant by sample.x 
+Vector3 RTCPURenderer::sampleHalfVector(const Vector2& sample, Float nu, Float nv, Float& phi) { 
+    Float delPhi;
+    Float j1;
+    Float j2 = sample.y();
+    if (sample.x() < 0.25f) {
+        delPhi = 0.0f;
+        j1 = 4.0f * sample.x();
+    } else if (sample.x() < 0.5f) {
+        delPhi = PI/2.0f;
+        j1 = 4.0f * sample.x() - 1.0f;
+    } else if (sample.x() < 0.75f) {
+        delPhi = PI;
+        j1 = 4.0f * sample.x() - 2.0f;
+    } else {
+        delPhi = 3.0f*PI/2.0f;
+        j1 = 4.0f * sample.x() - 3.0f;
+    }
+    Float k = sqrt((nu + 1) / (nv + 1));
+    phi = atan(k * tan(PI * j1 / 2.0f)) + delPhi;
+    Float cosPhi = cos(phi);
+    Float sinPhi = sin(phi);
+    // adding k*(PI/2) doesn't change the ratio of cos th and sin th
+    // so it's safe to just use offseted phi
+    Float cosTh = pow((1-j2),1.0f/(nu*cosPhi*cosPhi+nv*sinPhi*sinPhi+1));
+    // th in 0~pi/2
+    Float th = acos(cosTh);
+    // Other ways to get sinTh from cosTh requries sqrt with squares
+    // TODO: might exist faster way
+    Float sinTh = sin(th);
+    return Vector3(cosPhi * sinTh, sinPhi * sinTh, cosTh);
 }
 
 std::vector<Vector2> RTCPURenderer::generateJittered(int n) {

@@ -10,7 +10,7 @@ struct RTCPUConfig {
     size_t maxWidth{ 1000 };
     size_t maxHeight{ 1000 };
     int maxRayHit{ 20 };
-    size_t pathSampleNum{ 50 };
+    size_t pathSampleNum{ 10000 };
     Float closeTime{ 0.0001f };
     Float closeEpsillon { 0.000001f };
 };
@@ -41,6 +41,7 @@ struct RTCPURenderer : public Renderer {
     Vector3 evalBRDF(const Material& material, const Vector3& ko, const Vector3& ki);
     Float pdfBRDF(const Material& material, const Vector3& ki);
     Vector3 sampleHemisphere(const Vector2& sample);
+    Vector3 sampleHalfVector(const Vector2& sample, Float nu, Float nv, Float& phi);
     
 
     std::vector<Vector2> generateJittered(int n);

@@ -39,7 +39,8 @@ struct Image {
         for (size_t j = 0; j < height; ++j) {
             for (size_t i = 0; i < width; ++i) {
                 Float l= getPixel(i, j).dot(c);
-                if (!!l) {
+                if (isnan(l)) {
+                    printf("NAN\n");
                     lumi.setPixel(i, j, Vector3(0, 0, 0));
                 } else {
                     lsum += factor*log(del + l);

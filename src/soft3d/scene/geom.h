@@ -19,7 +19,13 @@ struct CoupledBRDF {
     Float roughness{ 0.5f };
 };
 
-using BRDF = std::variant<SpecularBRDF, CoupledBRDF, LambertianBRDF>;
+struct AntPhongBRDF {
+    Float Rs;
+    Float nu;
+    Float nv;
+};
+
+using BRDF = std::variant<SpecularBRDF, CoupledBRDF, LambertianBRDF, AntPhongBRDF>;
 
 struct Material {
     Vector3 diffuse;

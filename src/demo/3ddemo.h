@@ -25,7 +25,7 @@ void instantiateMesh(Scene& scene, Model& model, int i, Material material, std::
     auto triangles = model.generateTriangles(i, material, texId);
     for (auto& tri : triangles) {
         if (tri.normal(Vector3()).dot(Vector3(0, 1, 0)) > 0.8) {
-            tri.material.brdf = CoupledBRDF{ .R0 = 0.1, .roughness = 0.2f };
+            tri.material.brdf = AntPhongBRDF{ .Rs = 0.8f, .nu = 50, .nv = 50 };
         }
         scene.geoms.add(Geometry{ tri });
     }
@@ -42,12 +42,12 @@ struct Room : public App {
         basis.u = Vector3(1.0, 0.0, 0.0);
         basis.v = Vector3(0.0, 1.0, 0.0);
         basis.w = Vector3(0.0, 0.0, 1.0);
-        scene.camera = Camera(Vector3(0.0, 0.68, 1.5), basis, 1.0);
+        scene.camera = Camera(Vector3(0.0, 0.65, 1.5), basis, 1.0);
         LightSystem lightSystem{};
         lightSystem.ambientIntensity = 0.3;
         /*lightSystem.lights.move(
             std::move(DirectionalLight{ 1.2, Vector3(-0.5, 0.5, 0.5).normalized() }));*/
-        lightSystem.lights.move({ AreaLight{ 2.0, Vector3(-0.2, 1.12, 0.2),
+        lightSystem.lights.move({ AreaLight{ 4.0, Vector3(-0.2, 1.12, 0.2),
                                              Vector3(0.4, 0.0, 0.0), Vector3(0.0, 0.0, 0.4) } });
         Image envMap = loadTexture("resources/env-midday.png");
         TextureId envMapId = scene.textures.move(std::move(envMap));
@@ -59,10 +59,11 @@ struct Room : public App {
                                };
 
         Material material2 = {
-            .diffuse = Vector3(0.7, 0.7, 0.7),
+            .diffuse = Vector3(0.9, 0.9, 0.9),
             .phong = 100.0
         };
 
+        //material2.brdf  = AntPhongBRDF{ .Rs = 0.8, .nu = 500, .nv = 500 };
         Material materialwall = { .diffuse = Vector3(0.4, 0.4, 0.4),
                                   //.idealReflect = Vector3(0.2, 0.2, 0.2),
                                   .phong = 100.0 };
@@ -75,7 +76,7 @@ struct Room : public App {
 
         Model model = loadObj("resources/room.obj");
         instantiateMesh(scene, model, 0, material1, "resources/cube.jpg");
-         scene.geoms.add({ PlainSphere(Vector3(-0.2, 0.35, 0.2), 0.2, material2) });
+         scene.geoms.add({ PlainSphere(Vector3(0.1, 0.35, 0.05), 0.2, material2) });
         // instantiateMesh(scene, model2, 0, materialglass, "");
     }
 
