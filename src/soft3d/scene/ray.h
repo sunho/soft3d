@@ -11,8 +11,9 @@ struct Ray {
 struct RayHit {
     Vector3 normal;
     Vector3 pos;
+    Vector2 uv;
     Float time;
-    const Geometry* geom;
+    Geometry* geom;
 };
 
 struct BoundingRect {

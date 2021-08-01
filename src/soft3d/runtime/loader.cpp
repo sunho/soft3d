@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <stb_image.h>
 
-std::vector<Triangle> Model::generateTriangles(int mesh, Material material, TextureId tex) {
+std::vector<Triangle> Model::generateTriangles(int mesh, Material material, Image* tex) {
     Mesh& mesh_ = meshes[mesh];
     std::vector<Triangle> out;
     for (int i = 0; i < mesh_.indices.size(); i += 3) {
@@ -12,8 +12,7 @@ std::vector<Triangle> Model::generateTriangles(int mesh, Material material, Text
                           vt[mesh_.indices[i + 1].vt] };
         TriangleVertex c{ v[mesh_.indices[i + 2].v], vn[mesh_.indices[i + 2].vn],
                           vt[mesh_.indices[i + 2].vt] };
-        Triangle tri(a, b, c, material);
-        tri.texture = tex;
+        Triangle tri(a, b, c, material, tex);
         out.push_back(tri);
     }
     return out;

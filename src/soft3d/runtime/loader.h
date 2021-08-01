@@ -22,7 +22,7 @@ struct Model {
     std::vector<Vector3> vn;
     std::vector<Vector2> vt;
 
-    std::vector<Triangle> generateTriangles(int mesh, Material material, TextureId tex);
+    std::vector<Triangle> generateTriangles(int mesh, Material material, Image* tex);
 };
 
 Model loadObj(std::string path);

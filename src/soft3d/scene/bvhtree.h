@@ -12,15 +12,12 @@ struct BvhNode {
     BvhNode() = default;
     explicit BvhNode(BoundingRect rect) : rect(rect), box(true) {
     }
-    explicit BvhNode(BoundingRect rect, Geometry geom) : rect(rect), geom(geom), box(false) {
+    explicit BvhNode(BoundingRect rect, Geometry* geom) : rect(rect), geom(geom), box(false) {
     }
     bool box;
     BoundingRect rect;
-    Geometry geom;
+    Geometry* geom;
 };
-
-using LeafTestFunc =
-    std::function<bool(const Geometry* geom, Ray ray, Float t0, Float t1, RayHit& hit)>;
 
 // Hierarchical bounding box
 // Binary tree like test
@@ -36,8 +33,8 @@ struct BvhTree {
         return leafs.end();
     }
 
-    void add(const Geometry& geom) {
-        leafs.push_back(std::make_pair(geom.boundingRect(), geom));
+    void add(Geometry* geom) {
+        leafs.push_back(std::make_pair(geom->boundingRect(), geom));
         dirty = true;
     }
 
@@ -49,21 +46,20 @@ struct BvhTree {
             }
     }
 
-    bool testRay(Ray ray, Float t0, Float t1, RayHit& hit, const LeafTestFunc& func) {
+    bool testRay(Ray ray, Float t0, Float t1, RayHit& hit) {
         Vector3 invDir(1.0f / ray.dir.x(), 1.0f / ray.dir.y(), 1.0f / ray.dir.z());
-        return testRayInternal(0, ray, invDir, t0, t1, hit, func);
+        return testRayInternal(0, ray, invDir, t0, t1, hit);
     }
 
   private:
-    bool testRayInternal(int offset, const Ray& ray, const Vector3& invDir, Float t0, Float t1, RayHit& hit,
-                         const LeafTestFunc& func) {
+    bool testRayInternal(int offset, const Ray& ray, const Vector3& invDir, Float t0, Float t1, RayHit& hit) {
         BvhNode* node = &nodes[offset];
         if (node->rect.hit(ray, invDir)) {
             if (node->box) {
                 RayHit leftHit;
                 RayHit rightHit;
-                const bool leftTest = testRayInternal(offset * 2 + 1, ray, invDir, t0, t1, leftHit, func);
-                const bool rightTest = testRayInternal(offset * 2 + 2, ray, invDir, t0, t1, rightHit, func);
+                const bool leftTest = testRayInternal(offset * 2 + 1, ray, invDir, t0, t1, leftHit);
+                const bool rightTest = testRayInternal(offset * 2 + 2, ray, invDir, t0, t1, rightHit);
                 if (leftTest && rightTest) {
                     if (leftHit.time < rightHit.time) {
                         hit = leftHit;
@@ -80,7 +76,7 @@ struct BvhTree {
                 }
                 return false;
             } else {
-                return func(&node->geom, ray, t0, t1, hit);
+                return node->geom->rayTest(ray, t0, t1, hit);
             }
         } else {
             return false;
@@ -119,6 +115,6 @@ struct BvhTree {
     }
 
     bool dirty{ false };
-    std::vector<std::pair<BoundingRect, Geometry>> leafs;
+    std::vector<std::pair<BoundingRect, Geometry*>> leafs;
     std::vector<BvhNode> nodes;
 };

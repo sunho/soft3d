@@ -22,8 +22,13 @@ inline Matrix scale2(Float sx, Float sy) {
 }
 
 inline Matrix scale3(Float sx, Float sy, Float sz) {
-    return Matrix(3, 3, { sx, 0, 0, 0, sy, 0, 0, 0, sz });
+    return Matrix(4, 4, { sx, 0, 0, 0, 0, sy, 0, 0, 0, 0, sz ,0,0,0,0,1});
 }
+
+inline Matrix translate3(Float x, Float y, Float z) {
+    return Matrix(4, 4, { 1, 0, 0, x, 0, 1, 0, y, 0, 0, 1, z, 0, 0, 0, 1 });
+}
+
 
 inline Matrix toHomo(Matrix m) {
     Matrix out(4, 4);

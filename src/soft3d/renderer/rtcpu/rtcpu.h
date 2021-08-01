@@ -10,7 +10,7 @@ struct RTCPUConfig {
     size_t maxWidth{ 1000 };
     size_t maxHeight{ 1000 };
     int maxRayHit{ 20 };
-    size_t pathSampleNum{ 10000 };
+    size_t pathSampleNum{ 100};
     Float closeTime{ 0.0001f };
     Float closeEpsillon { 0.000001f };
 };
@@ -28,23 +28,9 @@ struct RTCPURenderer : public Renderer {
   private:
     void renderPixel(const Vector2& pos, Image& screen);
     Vector3 rayColor(Ray ray, Vector2 sample);
-    bool refractRay(Ray ray, Vector3 normal, Float index, Vector3& out);
+    Vector3 sampleLight(Geometry* geom, const Intersection& ins, const Vector3& pos, const Vector3& normal, const Vector3& ko, const Basis& TBN); 
     bool testRay(Ray ray, Float t0, Float t1, RayHit& hit);
-    bool testRayAndFetchTex(Ray ray, Float t0, Float t1, RayHit& hit, Material& material);
-    bool testSphereRay(const Vector3& e, Float radius, Ray ray, Float t0, Float t1, RayHit& hit);
-    bool testTriangleRay(const Triangle3& triangle, Ray ray, Float t0, Float t1, RayHit& hit,
-                         bool singleSide);
     
-    Vector3 sampleBRDF(const Material& material, const Vector3& ko, Vector3& ki, Float& pdf, bool& specular);
-    Vector3 sampleLight(const Material& material, const Vector3& pos, const Vector3& normal,
-                        const Vector3& ko, const Basis& TBN);
-    Vector3 evalBRDF(const Material& material, const Vector3& ko, const Vector3& ki);
-    Float pdfBRDF(const Material& material, const Vector3& ki);
-    Vector3 sampleHemisphere(const Vector2& sample);
-    Vector3 sampleHalfVector(const Vector2& sample, Float nu, Float nv, Float& phi);
-    
-
-    std::vector<Vector2> generateJittered(int n);
     RTCPUConfig conf;
     ThreadPool<Vector2> threadPool;
     Scene scene;

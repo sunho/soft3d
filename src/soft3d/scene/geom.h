@@ -7,72 +7,295 @@
 #include <optional>
 #include <variant>
 
-struct LambertianBRDF {
+struct Intersection {
+    Vector3 ko;
+    Vector3 diffuse;
+    Vector3 sepcular;
 };
 
-struct SpecularBRDF {
+static Float fresnel(Float R0, Float cosTh) {
+    Float a = (1 - cosTh);
+    return R0 + (1 - R0) * (a*a*a*a*a);
+}
+
+static Vector3 sampleHemisphere(const Vector2& sample) {
+    Float u = cos(2 * PI * sample.x()) * sqrt(sample.y());
+    Float v = sin(2 * PI * sample.x()) * sqrt(sample.y());
+    Float w = sqrt(1 - sample.y());
+    return Vector3(u, v, w);
+}
+
+static Vector3 sampleHalfVector(const Vector2& sample, Float nu, Float nv, Float& phi) { 
+    Float delPhi;
+    Float j1;
+    Float j2 = sample.y();
+    if (sample.x() < 0.25f) {
+        delPhi = 0.0f;
+        j1 = 4.0f * sample.x();
+    } else if (sample.x() < 0.5f) {
+        delPhi = PI/2.0f;
+        j1 = 4.0f * sample.x() - 1.0f;
+    } else if (sample.x() < 0.75f) {
+        delPhi = PI;
+        j1 = 4.0f * sample.x() - 2.0f;
+    } else {
+        delPhi = 3.0f*PI/2.0f;
+        j1 = 4.0f * sample.x() - 3.0f;
+    }
+    Float k = sqrt((nu + 1) / (nv + 1));
+    phi = atan(k * tan(PI * j1 / 2.0f)) + delPhi;
+    Float cosPhi = cos(phi);
+    Float sinPhi = sin(phi);
+    // adding k*(PI/2) doesn't change the ratio of cos th and sin th
+    // so it's safe to just use offseted phi
+    Float cosTh = pow((1-j2),1.0f/(nu*cosPhi*cosPhi+nv*sinPhi*sinPhi+1));
+    // th in 0~pi/2
+    Float th = acos(cosTh);
+    // Other ways to get sinTh from cosTh requries sqrt with squares
+    // TODO: might exist faster way
+    Float sinTh = sin(th);
+    return Vector3(cosPhi * sinTh, sinPhi * sinTh, cosTh);
+}
+
+
+struct BRDF {
+    BRDF() = default;
+    virtual ~BRDF() {
+    }
+    virtual Vector3 sample(const Intersection& intersection, Vector3& ki, Float& pdf, bool& wasSpecular) = 0;
+    virtual Vector3 eval(const Intersection& intersection, const Vector3& ki) = 0;
+};
+
+struct LambertianBRDF : public BRDF {
+    LambertianBRDF() = default;
+    ~LambertianBRDF() {
+    }
+
+    Vector3 sample(const Intersection& intersection, Vector3& ki, Float& pdf, bool& wasSpecular) override {
+        ki = sampleHemisphere(Vector2(randUniform(), randUniform()));
+        pdf = ki.dot(Vector3(0, 0, 1)) / PI;
+        return eval(intersection, ki);
+    }
+    Vector3 eval(const Intersection& intersection, const Vector3& ki) override {
+        return intersection.diffuse * (1.0f / PI);
+    }
+};
+
+struct SpecularBRDF : public BRDF {
+    ~SpecularBRDF() {
+    }
     Float R0;
+    Vector3 sample(const Intersection& intersection, Vector3& ki, Float& pdf, bool& wasSpecular) override {
+        ki = Vector3(-intersection.ko.x(), -intersection.ko.y(), intersection.ko.z());
+        wasSpecular = true;
+        pdf = 1.0f;
+        return eval(intersection, ki);
+    }
+    Vector3 eval(const Intersection& intersection, const Vector3& ki) override {
+        Float cosTh = intersection.ko.dot(Vector3(0,0,1));
+        if (cosTh == 0.0f) {
+            return Vector3(0, 0, 0);
+        }
+        return intersection.sepcular * fresnel(R0, cosTh) / cosTh;
+    }
 };
 
-struct CoupledBRDF {
+struct CoupledBRDF : public BRDF {
+    ~CoupledBRDF() {
+    }
     Float R0{ 0.1f};
     Float roughness{ 0.5f };
+    Vector3 sample(const Intersection& intersection, Vector3& ki, Float& pdf, bool& wasSpecular) override {
+        if (randUniform() < 0.5f) {
+            ki = Vector3(-intersection.ko.x(), -intersection.ko.y(), intersection.ko.z());
+            wasSpecular = true;
+            pdf = 1.0f/2.0f;
+        } else {
+            ki = sampleHemisphere(Vector2(randUniform(), randUniform()));
+            pdf = ki.dot(Vector3(0, 0, 1)) / (2*PI);
+        }
+        return eval(intersection, ki);
+    }
+
+    Vector3 eval(const Intersection& intersection, const Vector3& ki) override {
+        Vector3 half = (intersection.ko + ki).normalized();
+        Float cosTh = clamp(Vector3(0, 0, 1).dot(intersection.ko), 0.0f, 1.0f);
+        Float cosThd = clamp(Vector3(0, 0, 1).dot(ki), 0.0f, 1.0f);
+        Float nh = clamp(Vector3(0, 0, 1).dot(half), 0.0f, 1.0f);
+        Float a = nh * roughness;
+        Float k = roughness / (1.0f - nh * nh + a * a);
+        Float specBRDF = k * k * (1.0f / PI);  // ndf
+        Float K = 21.0f / (20.0f * PI * (1.0f - R0));
+        Float cosThTerm = pow(1.0f - cosTh, 5.0f);
+        Float cosThdTerm = pow(1.0f - cosThd, 5.0f);
+        return (R0 + cosThTerm * (1.0f - R0)) * specBRDF * Vector3(1, 1, 1) +
+               K * intersection.diffuse * (1.0f - cosThTerm) * (1.0f - cosThdTerm);
+    }
 };
 
-struct AntPhongBRDF {
-    Float Rs;
-    Float nu;
-    Float nv;
+struct AntPhongBRDF : public BRDF {
+    AntPhongBRDF() = default;
+    AntPhongBRDF(Float Rs, Float nu, Float uv) : Rs(Rs), nu(nu), nv(nv) {
+    }
+    ~AntPhongBRDF() {
+    }
+    Float Rs{};
+    Float nu{};
+    Float nv{};
+    Vector3 sample(const Intersection& intersection, Vector3& ki, Float& pdf, bool& wasSpecular) override {
+        if (randUniform() < 0.5f) {
+            // Specular
+            Float phi;
+            Vector3 half =
+                sampleHalfVector(Vector2(randUniform(), randUniform()), nu, nv, phi);
+            // Convert half vector into ki
+            Float koh = intersection.ko.dot(half);
+            ki = 2 * koh * half - intersection.ko;
+            if (ki.z() <= 0.0f) {
+                pdf = 0.0f;
+                return Vector3(0, 0, 0);
+            }
+            // Half vector pdf
+            // TODO: we can just memo sqrt(nu+1) and sqrt(nv+1)
+            Float k = sqrt((nu + 1) * (nv + 1)) / (2 * PI);
+            Float nh = Vector3(0, 0, 1).dot(half);
+            Float cosPhi = cos(phi);
+            Float sinPhi = sin(phi);
+            Float d = nu * cosPhi * cosPhi + nv * sinPhi * sinPhi;
+            // PDF should be multiplied by 1 / |J(ko, h)|
+            // J(ko,h) = 4 * ko.h
+            pdf = k * pow(nh, d) / (4 * koh);
+            pdf *= 0.5f;
+
+        } else {
+            // Diffuse
+            ki = sampleHemisphere(Vector2(randUniform(), randUniform()));
+            pdf = ki.dot(Vector3(0, 0, 1)) / (PI);
+            pdf *= 0.5f;
+        }
+        return eval(intersection, ki);
+    }
+
+    Vector3 eval(const Intersection& intersection, const Vector3& ki) override {
+        if (ki.z() <= 0.0f) {
+            return Vector3(0, 0, 0);
+        }
+        Vector3 half = (intersection.ko + ki).normalized();
+        Float koh = intersection.ko.dot(half);
+        Float kin = Vector3(0,0,1).dot(ki);
+        Float kon = Vector3(0, 0, 1).dot(intersection.ko);
+        Float cos2Th = half.z() * half.z();
+        Float sin2Th = 1.0f - cos2Th;
+        if (sin2Th == 0.0f) {
+            return Vector3(0, 0, 0);
+        }
+        Float cos2Phi = half.x()*half.x() / sin2Th;
+        Float sin2Phi = half.y()*half.y() / sin2Th;
+        Float nh = Vector3(0, 0, 1).dot(half);
+        Float d = (nu * cos2Phi + nv * sin2Phi);
+        Float b = koh * std::max(kin, kon);
+        Float k = sqrt((nu + 1) * (nv + 1)) / (8 * PI);
+        Float F = fresnel(Rs, 1.0f-koh);
+        Float dd = pow(nh, d) / b;
+        Vector3 specBRDF = intersection.sepcular * k* dd * F;
+        
+        Float cosThTerm = pow(1.0f - kon / 2.0f, 5.0f);
+        Float cosThdTerm = pow(1.0f - kin / 2.0f, 5.0f);
+        Vector3 K = 28.0f * intersection.diffuse / (23.0f * PI);
+        Vector3 diffuseBRDF = K * (1 - Rs) * (1 - cosThTerm) * (1 - cosThdTerm);
+        return specBRDF + diffuseBRDF;
+    }
 };
 
-using BRDF = std::variant<SpecularBRDF, CoupledBRDF, LambertianBRDF, AntPhongBRDF>;
+struct Medium {
+
+};
 
 struct Material {
     Vector3 diffuse;
-    Vector3 specular;
+    Vector3 specular{ 1.0f, 1.0f, 1.0f };
     Float phong{ 100.0 };
     bool ignoreShadow{ false };
-    BRDF brdf = LambertianBRDF{};
+    BRDF* brdf{};
 };
 
-
-struct PlainSphere {
-    Vector3 center;
-    Float radius{ 0.0 };
-    Material material;
-
-    PlainSphere() = default;
-    explicit PlainSphere(Vector3 center, Float radius, Material material)
-        : center(center), radius(radius), material(material) {
+struct Geometry {
+    Geometry() = default;
+    Geometry(Material material, Image* texture) : material(material), texture(texture) {
     }
+    virtual ~Geometry() {
+    }
+    virtual BoundingRect boundingRect() = 0;
+    virtual bool rayTest(Ray ray, Float t0, Float t1, RayHit& hit) = 0;
+    virtual Vector2 hitToUV(const Vector3& hit) = 0;
+    virtual Triangle3* rasterizeData() = 0;
+    virtual size_t rasterizeDataSize() = 0;
+    Material material{};
+    Medium* medium{};
+    Image* texture{};
 };
 
-struct Sphere {
+struct Sphere : public Geometry {
     Vector3 center;
     Float radius{ 0.0 };
-    Material material;
-    TextureId texture{ 0 };
 
     Sphere() = default;
-    explicit Sphere(Vector3 center, Float radius, Material material, TextureId texture)
-        : center(center), radius(radius), material(material), texture(texture) {
+    ~Sphere() {
     }
-};
-
-struct PlainTriangle {
-    Vector3 vA;
-    Vector3 vB;
-    Vector3 vC;
-    Triangle3 curve;
-    Material material;
-
-    PlainTriangle() = default;
-    explicit PlainTriangle(Vector3 a, Vector3 b, Vector3 c, Material material)
-        : vA(a), vB(b), vC(c), material(material), curve(a, b, c) {
+    explicit Sphere(Vector3 center, Float radius, Material material, Image* texture)
+        : center(center), radius(radius), Geometry(material, texture) {
     }
 
-    Vector3 normal(const Vector3& p) const {
-        return curve.n.normalized();
+    BoundingRect boundingRect() override {
+        BoundingRect out;
+        out.min = center - radius;
+        out.max = center + radius;
+        return out;
+    }
+
+    bool rayTest(Ray ray, Float t0, Float t1, RayHit& hit) override {
+        Vector3 ec = ray.origin - center;
+        Float dec = ray.dir.dot(ec);
+        Float dd = ray.dir.dot(ray.dir);
+        Float ecec = ec.dot(ec);
+        Float D = dec * dec - dd * (ecec - radius * radius);
+        bool test = nearGte(D, 0.0f);
+        if (test) {
+            const Float t =
+                (-dec - sqrt(D)) / dd;  // use -sqrt(D) solution that should be the earlier hit
+            if (inRange(t, t0, t1)) {
+                hit.pos = ray.origin + t * ray.dir;
+                hit.time = t;
+
+                // Normal calculation
+                // grad f(p)
+                // (p-c)^2 = p^2 - 2p.c + C
+                // = p_x^2 + p_y^2 + p_z^2 - 2p_xc_x - 2p_yc_y - 2p_zc_z + C
+                //
+                // del x = 2p_x - 2c_x del y = 2p_y - 2c_y del z = 2p_z - 2c_z
+                // grad = 2(p-c)
+                // on the surface, |(p-c)| = r (from solving f(p))
+                // |2(p-c)| = 2|p-c| = 2r
+                // unit grad = (p-c)/r
+                hit.normal = ((hit.pos - center) / radius).normalized();
+                hit.geom = this;
+            } else {
+                test = false;
+            }
+        }
+        return test;
+    }
+
+    Vector2 hitToUV(const Vector3& hit) override {
+        return Vector2(0, 0);
+    }
+
+    Triangle3* rasterizeData() override {
+        return nullptr;
+    }
+
+    size_t rasterizeDataSize() override {
+        return 0;
     }
 };
 
@@ -82,91 +305,113 @@ struct TriangleVertex {
     Vector2 tex;
 };
 
-struct Triangle {
+struct Triangle : public Geometry {
     TriangleVertex vA;
     TriangleVertex vB;
     TriangleVertex vC;
     Triangle3 curve;
-    Material material;
-    TextureId texture{ 0 };
-    TextureId normalMap{ 0 };
-    TextureId particleMap{ 0 };
 
     Triangle() = default;
-    explicit Triangle(TriangleVertex a, TriangleVertex b, TriangleVertex c, Material material)
-        : vA(a), vB(b), vC(c), material(material), curve(a.pos, b.pos, c.pos) {
+    explicit Triangle(TriangleVertex a, TriangleVertex b, TriangleVertex c, Material material, Image* texture)
+        : vA(a), vB(b), vC(c), curve(a.pos, b.pos, c.pos), Geometry(material, texture) {
     }
 
-    Vector3 normal(const Vector3& p) const {
-        const Vector3 bary = curve(p);
-        return bary.x() * vA.normal + bary.y() * vB.normal + bary.z() * vC.normal;
-    }
-};
-
-using GeometryData = std::variant<PlainSphere, PlainTriangle, Triangle, Sphere>;
-
-struct Geometry {
-    Geometry() = default;
-    Geometry(GeometryData&& data) : data(data) {
-    }
-
-    const Material& material() const {
-        return std::visit([](auto& data) { return data.material; }, data);
-    }
-
-    BoundingRect boundingRect() const {
+    BoundingRect boundingRect() override {
         BoundingRect out;
-        std::visit(
-            overloaded{ [&](const PlainSphere& sphere) {
-                           out.min = sphere.center - sphere.radius;
-                           out.max = sphere.center + sphere.radius;
-                       },
-                        [&](const Sphere& sphere) {
-                           out.min = sphere.center - sphere.radius;
-                           out.max = sphere.center + sphere.radius;
-                        },
-                        [&](const PlainTriangle& triangle) {
-                            out.min[0] =  std::min({ triangle.curve.pA.x(), triangle.curve.pB.x(),
-                                                  triangle.curve.pC.x() });
-                            out.min[1] = std::min({ triangle.curve.pA.y(), triangle.curve.pB.y(),
-                                                  triangle.curve.pC.y() });
-                            out.min[2] = std::min({ triangle.curve.pA.z(), triangle.curve.pB.z(),
-                                                  triangle.curve.pC.z() });
-                            out.max[0] = std::max({ triangle.curve.pA.x(), triangle.curve.pB.x(),
-                                                  triangle.curve.pC.x() });
-                            out.max[1] = std::max({ triangle.curve.pA.y(), triangle.curve.pB.y(),
-                                                  triangle.curve.pC.y() });
-                            out.max[2] = std::max({ triangle.curve.pA.z(), triangle.curve.pB.z(),
-                                                  triangle.curve.pC.z() });
-                        },
-                        [&](const Triangle& triangle) {
-                            out.min[0] = std::min({ triangle.curve.pA.x(), triangle.curve.pB.x(),
-                                                  triangle.curve.pC.x() });
-                            out.min[1] = std::min({ triangle.curve.pA.y(), triangle.curve.pB.y(),
-                                                  triangle.curve.pC.y() });
-                            out.min[2] = std::min({ triangle.curve.pA.z(), triangle.curve.pB.z(),
-                                                  triangle.curve.pC.z() });
-                            out.max[0] = std::max({ triangle.curve.pA.x(), triangle.curve.pB.x(),
-                                                  triangle.curve.pC.x() });
-                            out.max[1] = std::max({ triangle.curve.pA.y(), triangle.curve.pB.y(),
-                                                  triangle.curve.pC.y() });
-                            out.max[2] = std::max({ triangle.curve.pA.z(), triangle.curve.pB.z(),
-                                                  triangle.curve.pC.z() });
-                        } },
-            data);
+        out.min[0] =  std::min({ curve.pA.x(), curve.pB.x(),
+                              curve.pC.x() });
+        out.min[1] = std::min({ curve.pA.y(), curve.pB.y(),
+                              curve.pC.y() });
+        out.min[2] = std::min({ curve.pA.z(), curve.pB.z(),
+                              curve.pC.z() });
+        out.max[0] = std::max({ curve.pA.x(), curve.pB.x(),
+                              curve.pC.x() });
+        out.max[1] = std::max({ curve.pA.y(), curve.pB.y(),
+                              curve.pC.y() });
+        out.max[2] = std::max({ curve.pA.z(), curve.pB.z(),
+                              curve.pC.z() });
         return out;
     }
 
-    template <typename T>
-    T* get() {
-        return std::get_if<T>(&data);
+    // Just solve this equation:
+    // e + td = a + x(b-a) + y(c-a)
+    // solve for t, x, y
+    // it will give linear system with A = 3x3 -> can be full column rank (is it always full rank?)
+    // a = x_a - x_b
+    // b = y_a - y_b
+    // c = z_a - z_b
+    // d = x_a - x_c
+    // e = y_a - y_c
+    // f = z_a - z_c
+    // g = x_d
+    // h = y_d
+    // i = z_d
+    // j = x_a - x_e
+    // k = y_a - y_e
+    // i = z_a - z_e
+    //
+    // b = j(ei-hf)+k(gf-di)+l(dh-eg) / M
+    // c = i(ak-jb)+h(jc-al)+g(bl-kc) / M
+    // t = -(f(ak-jb)+e(jc-al)+d(bl-kc) / M)
+    // M = a(ei-hf) + b(gf-di) + c(dh-eg)
+    bool rayTest(Ray ray, Float t0, Float t1, RayHit& hit) override {
+        Vector3 pA = vA.pos;
+        Vector3 pB = vB.pos;
+        Vector3 pC = vC.pos;
+        Vector3 ab = pB - pA;
+        Vector3 ac = pC - pA;
+        Vector3 normal = ab.cross(ac).normalized();
+        if (!ray.isShadow && normal.dot(ray.dir) > 0) {
+            return false;
+        }
+        Float a = pA.x() - pB.x();
+        Float b = pA.y() - pB.y();
+        Float c = pA.z() - pB.z();
+        Float d = pA.x() - pC.x();
+        Float e = pA.y() - pC.y();
+        Float f = pA.z() - pC.z();
+        Float g = ray.dir.x();
+        Float h = ray.dir.y();
+        Float i = ray.dir.z();
+        Float j = pA.x() - ray.origin.x();
+        Float k = pA.y() - ray.origin.y();
+        Float l = pA.z() - ray.origin.z();
+
+        // I believe in compiler
+        Float M = a * (e * i - h * f) + b * (g * f - d * i) + c * (d * h - e * g);
+        Float t = -((f * (a * k - j * b) + e * (j * c - a * l) + d * (b * l - k * c)) / M);
+        if (!nearInRange(t, t0, t1)) {
+            return false;
+        }
+        Float gamma = (i * (a * k - j * b) + h * (j * c - a * l) + g * (b * l - k * c)) / M;
+        if (!nearInRange(gamma, 0.0f, 1.0f)) {
+            return false;
+        }
+        Float beta = (j * (e * i - h * f) + k * (g * f - d * i) + l * (d * h - e * g)) / M;
+        if (!nearInRange(beta, 0.0f, 1.0f - gamma)) {
+            return false;
+        }
+        hit.pos = ray.origin + t * ray.dir;
+        hit.time = t;
+        Vector3 bary = curve(hit.pos);
+        hit.normal = vA.normal * bary.x() + vB.normal * bary.y() +
+                     vC.normal * bary.z();
+        hit.normal.normalize();
+        hit.uv = vA.tex * bary.x() + vB.tex * bary.y() +
+                         vC.tex * bary.z();
+        hit.geom = this;
+        return true;
     }
 
-    template <typename T>
-    const T* get() const {
-        return std::get_if<T>(&data);
+    Vector2 hitToUV(const Vector3& hit) override {
+        return Vector2(0, 0);
     }
 
-  private:
-    GeometryData data;
+    Triangle3* rasterizeData() override {
+        return &curve;
+    }
+
+    size_t rasterizeDataSize() override {
+        return 1;
+    }
 };

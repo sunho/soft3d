@@ -7,6 +7,6 @@
 #include "3ddemo.h"
 
 int main() {
-    RENDER3D(Room)
+    RENDER3D(VolumeScatter)
     return 0;
 }

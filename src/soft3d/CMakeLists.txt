@@ -12,6 +12,7 @@ set(SOURCE_LIST
     common/util.h
     common/threadpool.h
     common/idresource.h
+    common/resourcelist.h
     runtime/loader.cpp
     runtime/loader.h
     runtime/runtime.cpp
@@ -19,8 +20,6 @@ set(SOURCE_LIST
     renderer/interface.h
     renderer/rtcpu/rtcpu.h
     renderer/rtcpu/rtcpu.cpp
-    renderer/zcpu/zcpu.h
-    renderer/zcpu/zcpu.cpp
 )
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SOURCE_LIST})

@@ -6,7 +6,6 @@
 // clang-format on
 
 #include <soft3d/renderer/rtcpu/rtcpu.h>
-#include <soft3d/renderer/zcpu/zcpu.h>
 
 #include <stb_image_write.h>
 
@@ -84,7 +83,7 @@ void Runtime::initRenderer() {
             renderer = std::make_unique<RTCPURenderer>(RTCPUConfig());
             break;
         case Backend::ZCPU:
-            renderer = std::make_unique<ZCPURenderer>(ZCPUConfig());
+            //renderer = std::make_unique<ZCPURenderer>(ZCPUConfig());
             break;
     }
 }

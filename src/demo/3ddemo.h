@@ -16,20 +16,135 @@ static RuntimeConfig engineConf = { .width = 500,
                                       },*/
                                     .renderer = Backend::RTCPU };
 
-void instantiateMesh(Scene& scene, Model& model, int i, Material material, std::string tex) {
-    TextureId texId = 0;
+void instantiateMesh(Scene& scene, Model& model, int i, Material material, std::string tex, Matrix transform = I4x4) {
+    Image* texture = nullptr;
     if (!tex.empty()) {
         Image base = loadTexture(tex);
-        texId = scene.textures.move(std::move(base));
+        texture = scene.textures.construct<Image>();
+        *texture = base;
     }
-    auto triangles = model.generateTriangles(i, material, texId);
+    auto triangles = model.generateTriangles(i, material, texture);
     for (auto& tri : triangles) {
-        if (tri.normal(Vector3()).dot(Vector3(0, 1, 0)) > 0.8) {
-            tri.material.brdf = AntPhongBRDF{ .Rs = 0.8f, .nu = 50, .nv = 50 };
-        }
-        scene.geoms.add(Geometry{ tri });
+        auto va = (transform * tri.vA.pos.expand(1.0f)).homoDiv();
+        auto vb = (transform * tri.vB.pos.expand(1.0f)).homoDiv();
+        auto vc = (transform * tri.vC.pos.expand(1.0f)).homoDiv();
+        tri.vA.pos = va;
+        tri.vB.pos = vb;
+        tri.vC.pos = vc;
+        tri.curve = Triangle3(va, vb, vc);
+        scene.geoms.construct<Triangle>(tri);
     }
 }
+
+struct VolumeScatter : public App {
+    VolumeScatter() {
+    }
+    ~VolumeScatter() {
+    }
+
+    void init(Runtime& engine, Scene& scene) override {
+        Basis basis;
+        basis.u = Vector3(1.0, 0.0, 0.0);
+        basis.v = Vector3(0.0, 1.0, 0.0);
+        basis.w = Vector3(0.0, 0.0, 1.0);
+        scene.camera = Camera(Vector3(1.3, 1.3, 1.3), basis, 1.0);
+        scene.camera.lookAt(Vector3(0, 0.3, 0), Vector3(0, 1, 0));
+        Image envMap = loadTexture("resources/env-midday.png");
+        Image* envMapId = scene.textures.construct<Image>(envMap);
+        scene.environmentMap = envMapId;
+        scene.lights.construct<DirectionalLight>(Vector3(5.0f,5.0f,5.0f), Vector3(1.0, 1.0, 1.0).normalized(), 5.0f);
+
+        Material material1 = { .diffuse = Vector3(0.7, 0.7, 0.7),
+                               .brdf = scene.brdfs.construct<AntPhongBRDF>(0.7, 500, 500) };
+
+        Material material3 = { .diffuse = Vector3(0.7, 0.7, 0.7) };
+
+        Material material2 = { .diffuse = Vector3(0.3, 0.3, 0.3),
+                               .brdf = scene.brdfs.construct<AntPhongBRDF>(0.7, 500, 500) };
+
+        //material2.brdf  = AntPhongBRDF{ .Rs = 0.8, .nu = 500, .nv = 500 };
+        Material materialwall = { .diffuse = Vector3(0.4, 0.4, 0.4),
+                                  //.idealReflect = Vector3(0.2, 0.2, 0.2),
+                                  .phong = 100.0 };
+        Material materialglass2 = { 
+                                    .ignoreShadow = false };
+        // scene.geoms.add({ PlainSphere(Vector3(-0.5, 0.3, 0.4), 0.25, materialglass2) });
+        //scene.geoms.add({ PlainSphere(Vector3(0.0, 0.98, 0.6), 0.32, materialglass) });
+
+        Float sz = -0.3;
+
+        Model wolf = loadObj("resources/wolf2.obj");
+        instantiateMesh(scene, wolf, 0, material1, "");
+        Model plane = loadObj("resources/plane.obj");
+        instantiateMesh(scene, plane, 0, material2, "");
+        // instantiateMesh(scene, model2, 0, materialglass, "");
+        /*Model model = loadObj("resources/anime.obj");
+        instantiateMesh(scene, model, 0, material3, "resources/body_v.jpeg", scale3(0.5,0.5,0.5));
+        instantiateMesh(scene, model, 1, material3, "resources/face_c.jpeg", scale3(0.5,0.5,0.5));
+        instantiateMesh(scene, model, 2, material3, "resources/hair_c.jpeg", scale3(0.5,0.5,0.5));
+        instantiateMesh(scene, model, 3, material3, "resources/acce_c.jpeg", scale3(0.5,0.5,0.5));*/
+    }
+
+    void update(Runtime& engine, Scene& scene, double dt) override {
+    }
+};
+
+struct MetalWolf : public App {
+    MetalWolf() {
+    }
+    ~MetalWolf() {
+    }
+
+    void init(Runtime& engine, Scene& scene) override {
+        Basis basis;
+        basis.u = Vector3(1.0, 0.0, 0.0);
+        basis.v = Vector3(0.0, 1.0, 0.0);
+        basis.w = Vector3(0.0, 0.0, 1.0);
+        scene.camera = Camera(Vector3(1.3, 1.3, 1.3), basis, 1.0);
+        scene.camera.lookAt(Vector3(0, 0.3, 0), Vector3(0, 1, 0));
+        Image envMap = loadTexture("resources/env-midday.png");
+        Image* envMapId = scene.textures.construct<Image>(envMap);
+        scene.environmentMap = envMapId;
+        scene.lights.construct<DirectionalLight>(Vector3(5.0f, 5.0f, 5.0f),
+                                                 Vector3(1.0, 1.0, 1.0).normalized(), 5.0f);
+
+        Material material1 = { .diffuse = Vector3(0.7, 0.7, 0.7),
+                               .brdf = scene.brdfs.construct<AntPhongBRDF>(0.7, 500, 500) };
+
+        Material material3 = { .diffuse = Vector3(0.7, 0.7, 0.7), .brdf = scene.brdfs.construct<LambertianBRDF>()};
+
+        Material material2 = {
+            .diffuse = Vector3(0.3, 0.3, 0.3),
+            .brdf = scene.brdfs.construct<AntPhongBRDF>(0.3, 50, 50)
+        };
+
+        //material2.brdf  = AntPhongBRDF{ .Rs = 0.8, .nu = 500, .nv = 500 };
+        Material materialwall = { .diffuse = Vector3(0.4, 0.4, 0.4),
+                                  //.idealReflect = Vector3(0.2, 0.2, 0.2),
+                                  .phong = 100.0 };
+        Material materialglass2 = { 
+                                    .ignoreShadow = false };
+        // scene.geoms.add({ PlainSphere(Vector3(-0.5, 0.3, 0.4), 0.25, materialglass2) });
+        //scene.geoms.add({ PlainSphere(Vector3(0.0, 0.98, 0.6), 0.32, materialglass) });
+
+        Float sz = -0.3;
+
+        Model wolf = loadObj("resources/wolf2.obj");
+        instantiateMesh(scene, wolf, 0, material1, "");
+        Model plane = loadObj("resources/plane.obj");
+        instantiateMesh(scene, plane, 0, material2, "");
+        // instantiateMesh(scene, model2, 0, materialglass, "");
+        /*Model model = loadObj("resources/anime.obj");
+        instantiateMesh(scene, model, 0, material3, "resources/body_v.jpeg", scale3(0.5,0.5,0.5));
+        instantiateMesh(scene, model, 1, material3, "resources/face_c.jpeg", scale3(0.5,0.5,0.5));
+        instantiateMesh(scene, model, 2, material3, "resources/hair_c.jpeg", scale3(0.5,0.5,0.5));
+        instantiateMesh(scene, model, 3, material3, "resources/acce_c.jpeg", scale3(0.5,0.5,0.5));*/
+    }
+
+    void update(Runtime& engine, Scene& scene, double dt) override {
+    }
+};
+
 
 struct Room : public App {
     Room() {
@@ -43,16 +158,13 @@ struct Room : public App {
         basis.v = Vector3(0.0, 1.0, 0.0);
         basis.w = Vector3(0.0, 0.0, 1.0);
         scene.camera = Camera(Vector3(0.0, 0.65, 1.5), basis, 1.0);
-        LightSystem lightSystem{};
-        lightSystem.ambientIntensity = 0.3;
         /*lightSystem.lights.move(
             std::move(DirectionalLight{ 1.2, Vector3(-0.5, 0.5, 0.5).normalized() }));*/
-        lightSystem.lights.move({ AreaLight{ 4.0, Vector3(-0.2, 1.12, 0.2),
-                                             Vector3(0.4, 0.0, 0.0), Vector3(0.0, 0.0, 0.4) } });
+        scene.lights.construct<AreaLight>(Vector3(4.0f,4.0f,4.0f), Vector3(-0.2, 1.12, 0.2), Vector3(0.4, 0.0, 0.0),
+                                          Vector3(0.0, 0.0, 0.4));
         Image envMap = loadTexture("resources/env-midday.png");
-        TextureId envMapId = scene.textures.move(std::move(envMap));
+        Image* envMapId = scene.textures.construct<Image>(envMap);
         scene.environmentMap = envMapId;
-        scene.lightSystem = lightSystem;
 
         Material material1 = { .diffuse = Vector3(0.5, 1.0, 0.5)
 
@@ -76,7 +188,8 @@ struct Room : public App {
 
         Model model = loadObj("resources/room.obj");
         instantiateMesh(scene, model, 0, material1, "resources/cube.jpg");
-         scene.geoms.add({ PlainSphere(Vector3(0.1, 0.35, 0.05), 0.2, material2) });
+         scene.geoms.construct<Sphere>(Vector3(0.1, 0.35, 0.05), 0.2, material2, nullptr);
+
         // instantiateMesh(scene, model2, 0, materialglass, "");
     }
 

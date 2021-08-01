@@ -6,6 +6,7 @@
 #include <soft3d/math/linalg.h>
 #include <soft3d/math/transform.h>
 #include <soft3d/scene/bvhtree.h>
+#include <soft3d/common/resourcelist.h>
 #include <soft3d/scene/geom.h>
 
 #include <list>
@@ -43,80 +44,90 @@ struct Camera {
         const Matrix vp = viewportMatrix(screen.getWidth(), screen.getHeight());
         return vp * o * p * v;
     }
+
+    void lookAt(Vector3 pos, Vector3 up) {
+        Vector3 w = (e - pos).normalized();
+        Vector3 u = up.cross(w).normalized();
+        Vector3 v = w.cross(u);
+        basis.u = u;
+        basis.v = v;
+        basis.w = w;
+    }
 };
 
-struct DirectionalLight {
-    Float intensity;
+struct Light {
+    Light() = default;
+    virtual ~Light() {
+    }
+    virtual Vector3 sampleDir(const Vector3& pos) = 0;
+    virtual Vector3 Le(const Vector3& brdf, const Vector3& ki, const Vector3& dir) = 0;
+};
+
+struct DirectionalLight : public Light {
+    DirectionalLight() = default;
+    ~DirectionalLight() {
+    }
+    DirectionalLight(Vector3 intensity, Vector3 v, Float R) : intensity(intensity), v(v), R(R) {
+    }
+    Vector3 sampleDir(const Vector3& pos) override {
+        return 10000.0f * v; // hack
+    }
+    Vector3 Le(const Vector3& brdf, const Vector3& ki, const Vector3& dir) override {
+        Float cosTh = clamp(Vector3(0,0,1).dot(ki), 0.0f, 1.0f);
+        return intensity * cosTh * brdf;
+    }
+    Vector3 intensity;
     Vector3 v;
+    Float R;
 };
 
-struct PointLight {
-    Float intensity;
-    Vector3 pos;
-};
+struct AreaLight : public Light {
+    AreaLight() = default;
+    ~AreaLight() {
+    }
+    AreaLight(Vector3 intensity, Vector3 pos, Vector3 edge1, Vector3 edge2)
+        : intensity(intensity)
+        , pos(pos)
+        , edge1(edge1), edge2(edge2) {
+    }
 
-struct AreaLight {
-    Float intensity;
+    Vector3 sampleDir(const Vector3& pos) override {
+        Float u = randUniform();
+        Float v = randUniform();
+        Vector3 lightPos = this->pos + u * edge1 + v * edge2;
+        return lightPos - pos;
+    }
+
+    Vector3 Le(const Vector3& brdf, const Vector3& ki, const Vector3& dir) override {
+        Vector3 lightN = edge1.cross(edge2).normalized();
+        Float cosTh = clamp(Vector3(0,0,1).dot(ki), 0.0f, 1.0f);
+        Float cosThd = clamp(-lightN.dot(dir.normalized()), 0.0f, 1.0f);
+        return intensity * cosTh * cosThd * brdf / dir.norm2();
+    }
+
+    Vector3 intensity;
     Vector3 pos;
     Vector3 edge1;
     Vector3 edge2;
 };
 
-struct EnvironmentLight {
-    TextureId tex;
-    Float radius;
-};
-
-using LightData = std::variant<DirectionalLight, PointLight, AreaLight, EnvironmentLight>;
-
-struct Light {
-    Light() = default;
-    Light(LightData&& data) : data(data) {
-    }
-
-    void unwrap(const Vector3& hit, Vector3& v, Float& intensity) {
-        if (auto light = std::get_if<DirectionalLight>(&data)) {
-            v = light->v;
-            intensity = light->intensity;
-        } else if (auto light = std::get_if<PointLight>(&data)) {
-            v = (light->pos - hit).normalized();
-            intensity = light->intensity / (light->pos - hit).norm2();
-        } else if (auto light = std::get_if<AreaLight>(&data)) {
-            v = (light->pos - hit).normalized();
-            intensity = light->intensity / (light->pos - hit).norm2();
+struct Scene {
+    Scene() = default;
+    
+    void prepare() {
+        bvhtree = BvhTree();   
+        for (auto geom : geoms.list()) {
+            bvhtree.add(geom);
         }
+        bvhtree.prepare();
     }
 
-    template <typename T>
-    T* get() {
-        return std::get_if<T>(&data);
-    }
-
-    template <typename T>
-    const T* get() const {
-        return std::get_if<T>(&data);
-    }
-
-  private:
-    LightData data;
-};
-
-struct LightSystem {
-    LightSystem() = default;
-    Float ambientIntensity;
-    IdResourceManager<Light> lights;
-};
-
-template <typename GeomTree>
-struct GScene {
-    GScene() = default;
-
-    IdResourceManager<Image> textures;
-    GeomTree geoms;
+    ResourceList<Light> lights;
+    ResourceList<Geometry> geoms;
+    ResourceList<Image> textures;
+    ResourceList<BRDF> brdfs;
+    BvhTree bvhtree;
     Camera camera;
-    LightSystem lightSystem;
-    TextureId environmentMap{ 0 };
-    int envLightId{ 0 } ;
+    Image* environmentMap{ nullptr };
 };
 
-using Scene = GScene<BvhTree>;
