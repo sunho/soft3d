@@ -103,7 +103,9 @@ struct SpecularBRDF : public BRDF {
 struct CoupledBRDF : public BRDF {
     ~CoupledBRDF() {
     }
-    Float R0{ 0.1f};
+    CoupledBRDF(Float Rs, Float roughness) : Rs(Rs), roughness(roughness) {
+    }
+    Float Rs{ 0.1f};
     Float roughness{ 0.5f };
     Vector3 sample(const Intersection& intersection, Vector3& ki, Float& pdf, bool& wasSpecular) override {
         if (randUniform() < 0.5f) {
@@ -118,17 +120,16 @@ struct CoupledBRDF : public BRDF {
     }
 
     Vector3 eval(const Intersection& intersection, const Vector3& ki) override {
-        Vector3 half = (intersection.ko + ki).normalized();
         Float cosTh = clamp(Vector3(0, 0, 1).dot(intersection.ko), 0.0f, 1.0f);
         Float cosThd = clamp(Vector3(0, 0, 1).dot(ki), 0.0f, 1.0f);
-        Float nh = clamp(Vector3(0, 0, 1).dot(half), 0.0f, 1.0f);
-        Float a = nh * roughness;
-        Float k = roughness / (1.0f - nh * nh + a * a);
-        Float specBRDF = k * k * (1.0f / PI);  // ndf
-        Float K = 21.0f / (20.0f * PI * (1.0f - R0));
+        if (cosTh == 0.0f) {
+            return Vector3(0, 0, 0);
+        }
+        Vector3 specBRDF = intersection.sepcular * fresnel(Rs, cosTh) / cosTh;
+        Float K = 21.0f / (20.0f * PI * (1.0f - Rs));
         Float cosThTerm = pow(1.0f - cosTh, 5.0f);
         Float cosThdTerm = pow(1.0f - cosThd, 5.0f);
-        return (R0 + cosThTerm * (1.0f - R0)) * specBRDF * Vector3(1, 1, 1) +
+        return (Rs + cosThTerm * (1.0f - Rs)) * specBRDF * Vector3(1, 1, 1) +
                K * intersection.diffuse * (1.0f - cosThTerm) * (1.0f - cosThdTerm);
     }
 };
@@ -195,7 +196,7 @@ struct AntPhongBRDF : public BRDF {
         Float d = (nu * cos2Phi + nv * sin2Phi);
         Float b = koh * std::max(kin, kon);
         Float k = sqrt((nu + 1) * (nv + 1)) / (8 * PI);
-        Float F = fresnel(Rs, 1.0f-koh);
+        Float F = fresnel(Rs, koh);
         Float dd = pow(nh, d) / b;
         Vector3 specBRDF = intersection.sepcular * k* dd * F;
         
@@ -207,8 +208,36 @@ struct AntPhongBRDF : public BRDF {
     }
 };
 
-struct Medium {
+struct PhaseFunction {
+    virtual ~PhaseFunction() {
+    }
+    virtual Float p(const Vector3& ko, const Vector3& ki) = 0;
+    virtual void samplePhase(const Vector3& ko, const Vector2& sample, Vector3& ki) = 0;
+};
 
+struct HenyeyGreenstein : public PhaseFunction {
+    explicit HenyeyGreenstein(Float g) : g(g) {
+    }
+    ~HenyeyGreenstein() {
+    }
+
+    Float p(const Vector3& ko, const Vector3& ki) override {
+        Float cosTh = ki.dot(ko);
+        Float k = 1 + g * g + 2 * g * cosTh;
+        Float d = 4 * PI * k * sqrt(k);
+        return (1 - g * g) / d;
+    }
+
+    void samplePhase(const Vector3& ko, const Vector2& sample, Vector3& ki) override {
+    
+    }
+
+  private:
+    Float g;
+};
+
+struct Medium {
+       
 };
 
 struct Material {

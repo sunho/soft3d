@@ -66,19 +66,31 @@ Vector3 RTCPURenderer::rayColor(Ray ray, Vector2 sample) {
         Vector3 v = w.cross(u);
         return Basis{ u, v, w };
     };
+    Intersection ins;
     RayHit hit;
     Basis TBN;
     bool wasSpecular=false;
     while (true) {
         if (!testRay(ray, t0, t1, hit)) {
             Vector2 uv = convertSphereTexcoord(ray.dir.normalized());
-            Vector3 Le = 2.18*PI*sampleBilinear(*scene.environmentMap, uv - Vector2(0,0.5), true);
+            Vector3 Le = 2.18*PI*sampleBilinear(*scene.environmentMap, uv, true);
             pixel += weight*Le;
+            if (wasSpecular) {
+                for (auto light : scene.lights.list()) {
+                    Vector3 dir = light->sampleDir(hit.pos);
+                    RayHit dummy;
+                    if (!testRay(Ray{ hit.pos, dir, false }, conf.closeTime, 1.0f - conf.closeEpsillon, dummy)) {
+                        Vector3 dd = dir.normalized();
+                        Vector3 ki = Vector3(TBN.u.dot(dd), TBN.v.dot(dd), TBN.w.dot(dd));
+                        Vector3 brdf = hit.geom->material.brdf->eval(ins, ki);
+                        pixel += weight*light->Le(brdf, ki, dir);
+                    }
+                }
+            }
             break;
         }
         Vector3 invDir = -1*ray.dir;
         TBN = getTBNBasis(hit.normal, invDir);
-        Intersection ins;
         ins.sepcular = hit.geom->material.specular;
         ins.diffuse = hit.geom->material.diffuse;
         if (hit.geom->texture) {

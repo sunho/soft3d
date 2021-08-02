@@ -70,11 +70,11 @@ struct DirectionalLight : public Light {
     DirectionalLight(Vector3 intensity, Vector3 v, Float R) : intensity(intensity), v(v), R(R) {
     }
     Vector3 sampleDir(const Vector3& pos) override {
-        return 10000.0f * v; // hack
+        return -10000.0f * v; // hack
     }
     Vector3 Le(const Vector3& brdf, const Vector3& ki, const Vector3& dir) override {
         Float cosTh = clamp(Vector3(0,0,1).dot(ki), 0.0f, 1.0f);
-        return intensity * cosTh * brdf;
+        return intensity * cosTh * clamp(-dir.normalized().dot(v), 0.0f, 1.0f) * brdf;
     }
     Vector3 intensity;
     Vector3 v;

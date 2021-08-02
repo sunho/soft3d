@@ -52,15 +52,15 @@ struct VolumeScatter : public App {
         Image envMap = loadTexture("resources/env-midday.png");
         Image* envMapId = scene.textures.construct<Image>(envMap);
         scene.environmentMap = envMapId;
-        scene.lights.construct<DirectionalLight>(Vector3(5.0f,5.0f,5.0f), Vector3(1.0, 1.0, 1.0).normalized(), 5.0f);
+        scene.lights.construct<DirectionalLight>(Vector3(7.0f,7.0f,7.0f), Vector3(-1.0, -1.0, -1.0).normalized(), 5.0f);
 
-        Material material1 = { .diffuse = Vector3(0.7, 0.7, 0.7),
-                               .brdf = scene.brdfs.construct<AntPhongBRDF>(0.7, 500, 500) };
+        Material material1 = { .diffuse = Vector3(0x6e6e6e),
+                               .brdf = scene.brdfs.construct<AntPhongBRDF>(0.1, 500, 500) };
 
         Material material3 = { .diffuse = Vector3(0.7, 0.7, 0.7) };
 
-        Material material2 = { .diffuse = Vector3(0.3, 0.3, 0.3),
-                               .brdf = scene.brdfs.construct<AntPhongBRDF>(0.7, 500, 500) };
+        Material material2 = { .diffuse = Vector3(0.7, 0.7, 0.7),
+                               .brdf = scene.brdfs.construct<AntPhongBRDF>(0.9, 5000, 5000) };
 
         //material2.brdf  = AntPhongBRDF{ .Rs = 0.8, .nu = 500, .nv = 500 };
         Material materialwall = { .diffuse = Vector3(0.4, 0.4, 0.4),
