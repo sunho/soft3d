@@ -5,7 +5,6 @@
 #include <ctime>
 #include <numeric>
 
-constexpr Float EPSILON = 1e-8;
 
 inline bool nearE(Float a, Float b) {
     return fabs(a - b) < EPSILON;

@@ -7,6 +7,8 @@
 #include <optional>
 #include <variant>
 
+constexpr static const Float MAX_TIME = 1000000000.0f;
+
 struct Intersection {
     Vector3 ko;
     Vector3 diffuse;
@@ -16,6 +18,24 @@ struct Intersection {
 static Float fresnel(Float R0, Float cosTh) {
     Float a = (1 - cosTh);
     return R0 + (1 - R0) * (a*a*a*a*a);
+}
+
+static Float fresnelDie(Float R0, Float cosTh) {
+    Float a = (1 - cosTh);
+    return R0 + (1 - R0) * (a*a*a*a*a);
+}
+
+static bool refractRay(const Vector3 ko, const Vector3 normal, Float index, Vector3& ki) {
+    Float cosTh = ko.dot(normal);
+    Float cosPhi2 = 1 - (1 - cosTh * cosTh) / (index * index);
+    if (cosPhi2 < 0.0f) {
+        // total internal reflection
+        return false;
+    }
+    Vector3 firstTerm = (ko - normal* cosTh) / index;
+    Vector3 secondTerm = normal* sqrt(cosPhi2);
+    ki = (firstTerm - secondTerm).normalized();
+    return true;
 }
 
 static Vector3 sampleHemisphere(const Vector2& sample) {
@@ -97,6 +117,60 @@ struct SpecularBRDF : public BRDF {
             return Vector3(0, 0, 0);
         }
         return intersection.sepcular * fresnel(R0, cosTh) / cosTh;
+    }
+};
+
+struct DielectricBRDF : public BRDF {
+    DielectricBRDF(Float index) : index(index) {
+        R0 = (index - 1) * (index - 1) / ((index + 1) * (index + 1));
+    }
+    ~DielectricBRDF() {
+    }
+    Float index;
+    Float R0;
+    Vector3 sample(const Intersection& intersection, Vector3& ki, Float& pdf, bool& wasSpecular) override {
+        Vector3 normal;
+        Float i;
+        Float cosTh;
+        if (intersection.ko.dot(Vector3(0, 0, 1)) > 0.0f) {
+            // from outside
+            i = index;
+            normal = Vector3(0, 0, 1);
+            cosTh = intersection.ko.dot(normal);
+        } else {
+            // from inside
+            i = 1.0f/index;
+            normal = Vector3(0, 0, -1.0f);
+            cosTh = intersection.ko.dot(normal);
+            //printf("asdfsdf");
+        }
+        if (cosTh == 0.0f) {
+            pdf = 0.0f;
+            return Vector3(0, 0, 0);
+        }
+        if (cosTh < 0.0f) {
+            printf("asdf");
+        }
+        Float F = fresnel(R0, cosTh);
+        if (randUniform() < F) {
+            ki = Vector3(-intersection.ko.x(), -intersection.ko.y(), intersection.ko.z());
+            wasSpecular = true;
+            pdf = F;
+            if (cosTh == 0.0f) {
+                return Vector3(0, 0, 0);
+            }
+            return 0.1*F * intersection.sepcular / cosTh; // *F removed because of uniform selection
+        } else {
+            if (!refractRay(intersection.ko, normal, i, ki)) {
+                pdf = 0.0f;
+                return Vector3(0, 0, 0);
+            }
+            pdf = 1 - F;
+            return 0.9*intersection.sepcular *i * i * (1 - F) / cosTh;
+        }
+    }
+    Vector3 eval(const Intersection& intersection, const Vector3& ki) override {
+        return Vector3(0, 0, 0);
     }
 };
 
@@ -215,6 +289,10 @@ struct PhaseFunction {
     virtual void samplePhase(const Vector3& ko, const Vector2& sample, Vector3& ki) = 0;
 };
 
+static Vector3 expVector(Vector3 t) {
+    return Vector3(exp(t.x()), exp(t.y()), exp(t.z()));
+}
+
 struct HenyeyGreenstein : public PhaseFunction {
     explicit HenyeyGreenstein(Float g) : g(g) {
     }
@@ -229,7 +307,17 @@ struct HenyeyGreenstein : public PhaseFunction {
     }
 
     void samplePhase(const Vector3& ko, const Vector2& sample, Vector3& ki) override {
-    
+        Float cosTh;
+        if (g == 0.0f) {
+            cosTh = 1 - 2 * sample.x();
+        } else {
+            Float sqrtTerm = (1 - g * g) / (1 - g+ 2 * g * sample.x());
+            cosTh = (1 + g * g - sqrtTerm * sqrtTerm) / (2 * g);
+        }
+        Float sinTh = sqrt(std::max(0.0f, 1-cosTh*cosTh));
+        Float phi = 2 * PI * sample.y();
+        Vector3 del = sphericalDir(cosTh, sinTh, phi);
+        ki = Basis(ko).toGlobal(del);
     }
 
   private:
@@ -237,7 +325,52 @@ struct HenyeyGreenstein : public PhaseFunction {
 };
 
 struct Medium {
-       
+    virtual ~Medium() {
+    }
+    virtual Float phaseP(const Vector3& ko, const Vector3& ki) = 0;
+    virtual bool sample(const Ray& ray, Float time, Vector3& weight, Ray& newRay)= 0;
+    virtual Vector3 Tr(const Ray& ray, Float time) = 0;
+};
+
+struct HomoMedium : public Medium {
+    HomoMedium(Vector3 sigmat, Vector3 sigmas, PhaseFunction* phase)
+        : sigmat(sigmat), sigmas(sigmas), phase(phase) {
+    }
+    ~HomoMedium() {
+    }
+
+    Float phaseP(const Vector3& ko, const Vector3& ki) {
+        return phase->p(ko, ki);
+    }
+
+    bool sample(const Ray& ray, Float time, Vector3& weight, Ray& newRay) override {
+        int channel = rand() % 3;
+        Float dist = -log(1.0f - randUniform()) / sigmat[channel];
+        Float t = std::min(dist, time);
+        bool sampledMed = dist < time;
+        Vector3 mpdf = sigmat * expVector(-sigmat * t);
+        Vector3 tr = expVector(-sigmat * std::min(t, MAX_TIME));
+        Float pdf = (mpdf.x() + mpdf.y() + mpdf.z()) / 3.0f;
+        if (sampledMed) {
+            newRay.origin = ray.origin + ray.dir * t;
+            newRay.medium = this;
+            weight = sigmas * tr / pdf;
+            Vector3 ki;
+            phase->samplePhase(ray.dir.normalized(), Vector2(randUniform(), randUniform()), ki);
+            newRay.dir = ki;
+        } else {
+            weight = tr / pdf;
+        }
+        return sampledMed;
+    }
+
+    Vector3 Tr(const Ray& ray, Float time) override {
+        return expVector(-sigmat * std::min(time, MAX_TIME));
+    }
+
+    Vector3 sigmat;
+    Vector3 sigmas;
+    PhaseFunction* phase;
 };
 
 struct Material {
@@ -245,7 +378,8 @@ struct Material {
     Vector3 specular{ 1.0f, 1.0f, 1.0f };
     Float phong{ 100.0 };
     bool ignoreShadow{ false };
-    BRDF* brdf{};
+    BRDF* brdf{nullptr};
+    Medium* medium{nullptr};
 };
 
 struct Geometry {
@@ -260,7 +394,6 @@ struct Geometry {
     virtual Triangle3* rasterizeData() = 0;
     virtual size_t rasterizeDataSize() = 0;
     Material material{};
-    Medium* medium{};
     Image* texture{};
 };
 
@@ -289,6 +422,10 @@ struct Sphere : public Geometry {
         Float ecec = ec.dot(ec);
         Float D = dec * dec - dd * (ecec - radius * radius);
         bool test = nearGte(D, 0.0f);
+        Vector3 normal = ((hit.pos - center) / radius).normalized();
+        if (ray.isShadow && normal.dot(ray.dir) > 0) {
+            return false;
+        }
         if (test) {
             const Float t =
                 (-dec - sqrt(D)) / dd;  // use -sqrt(D) solution that should be the earlier hit
@@ -306,7 +443,8 @@ struct Sphere : public Geometry {
                 // on the surface, |(p-c)| = r (from solving f(p))
                 // |2(p-c)| = 2|p-c| = 2r
                 // unit grad = (p-c)/r
-                hit.normal = ((hit.pos - center) / radius).normalized();
+                hit.normal = normal;
+                hit.gnormal = normal;
                 hit.geom = this;
             } else {
                 test = false;
@@ -390,9 +528,9 @@ struct Triangle : public Geometry {
         Vector3 ab = pB - pA;
         Vector3 ac = pC - pA;
         Vector3 normal = ab.cross(ac).normalized();
-        if (!ray.isShadow && normal.dot(ray.dir) > 0) {
+        /*if (ray.isShadow && normal.dot(ray.dir) > 0) {
             return false;
-        }
+        }*/
         Float a = pA.x() - pB.x();
         Float b = pA.y() - pB.y();
         Float c = pA.z() - pB.z();
@@ -426,6 +564,7 @@ struct Triangle : public Geometry {
         hit.normal = vA.normal * bary.x() + vB.normal * bary.y() +
                      vC.normal * bary.z();
         hit.normal.normalize();
+        hit.gnormal = normal;
         hit.uv = vA.tex * bary.x() + vB.tex * bary.y() +
                          vC.tex * bary.z();
         hit.geom = this;

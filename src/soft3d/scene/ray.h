@@ -2,10 +2,13 @@
 
 struct Geometry;
 
+struct Medium;
+
 struct Ray {
     Vector3 origin;
     Vector3 dir;
     bool isShadow{ false };
+    Medium* medium{ nullptr };
 };
 
 struct RayHit {
@@ -13,6 +16,7 @@ struct RayHit {
     Vector3 pos;
     Vector2 uv;
     Float time;
+    Vector3 gnormal;
     Geometry* geom;
 };
 

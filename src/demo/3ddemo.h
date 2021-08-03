@@ -52,15 +52,19 @@ struct VolumeScatter : public App {
         Image envMap = loadTexture("resources/env-midday.png");
         Image* envMapId = scene.textures.construct<Image>(envMap);
         scene.environmentMap = envMapId;
-        scene.lights.construct<DirectionalLight>(Vector3(7.0f,7.0f,7.0f), Vector3(-1.0, -1.0, -1.0).normalized(), 5.0f);
+        scene.lights.construct<DirectionalLight>(Vector3(0xfff7c7)*4.0f, Vector3(-1.0, -1.0, -1.0).normalized(), 5.0f);
+        //scene.lights.construct<DirectionalLight>(Vector3(0x3ff2ce)*3.0f, Vector3(-1.0, 0.0, -1.0).normalized(), 5.0f);
+        //scene.lights.construct<DirectionalLight>(Vector3(0xff334e)*3.0f, Vector3(1.0, 0.0, -1.0).normalized(), 5.0f);
 
-        Material material1 = { .diffuse = Vector3(0x6e6e6e),
-                               .brdf = scene.brdfs.construct<AntPhongBRDF>(0.1, 500, 500) };
-
+        Material material1 = {
+            .diffuse = Vector3(0x6e6e6e), .brdf = scene.brdfs.construct<DielectricBRDF>(1.0),
+            //.medium = new HomoMedium(0.5f*(Vector3(1,1,1)-Vector3(0x37dbed)),
+            // Vector3(0.1,0.1,0.1), new HenyeyGreenstein(0.8))};
+        };
         Material material3 = { .diffuse = Vector3(0.7, 0.7, 0.7) };
 
         Material material2 = { .diffuse = Vector3(0.7, 0.7, 0.7),
-                               .brdf = scene.brdfs.construct<AntPhongBRDF>(0.9, 5000, 5000) };
+                               .brdf = scene.brdfs.construct<LambertianBRDF>() };
 
         //material2.brdf  = AntPhongBRDF{ .Rs = 0.8, .nu = 500, .nv = 500 };
         Material materialwall = { .diffuse = Vector3(0.4, 0.4, 0.4),
@@ -73,10 +77,10 @@ struct VolumeScatter : public App {
 
         Float sz = -0.3;
 
-        Model wolf = loadObj("resources/wolf2.obj");
-        instantiateMesh(scene, wolf, 0, material1, "");
+        Model wolf = loadObj("resources/rock.obj");
+        instantiateMesh(scene, wolf, 0, material1, "", translate3(0,0.5,0));
         Model plane = loadObj("resources/plane.obj");
-        instantiateMesh(scene, plane, 0, material2, "");
+        instantiateMesh(scene, plane, 0, material2, "", scale3(0.5,0.5,0.5));
         // instantiateMesh(scene, model2, 0, materialglass, "");
         /*Model model = loadObj("resources/anime.obj");
         instantiateMesh(scene, model, 0, material3, "resources/body_v.jpeg", scale3(0.5,0.5,0.5));
@@ -105,7 +109,7 @@ struct MetalWolf : public App {
         Image envMap = loadTexture("resources/env-midday.png");
         Image* envMapId = scene.textures.construct<Image>(envMap);
         scene.environmentMap = envMapId;
-        scene.lights.construct<DirectionalLight>(Vector3(5.0f, 5.0f, 5.0f),
+        scene.lights.construct<DirectionalLight>(Vector3(3.0f, 5.0f, 5.0f),
                                                  Vector3(1.0, 1.0, 1.0).normalized(), 5.0f);
 
         Material material1 = { .diffuse = Vector3(0.7, 0.7, 0.7),

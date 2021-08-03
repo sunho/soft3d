@@ -10,7 +10,7 @@ struct RTCPUConfig {
     size_t maxWidth{ 1000 };
     size_t maxHeight{ 1000 };
     int maxRayHit{ 20 };
-    size_t pathSampleNum{ 100};
+    size_t pathSampleNum{ 1000};
     Float closeTime{ 0.0001f };
     Float closeEpsillon { 0.000001f };
 };
@@ -29,6 +29,7 @@ struct RTCPURenderer : public Renderer {
     void renderPixel(const Vector2& pos, Image& screen);
     Vector3 rayColor(Ray ray, Vector2 sample);
     Vector3 sampleLight(Geometry* geom, const Intersection& ins, const Vector3& pos, const Vector3& normal, const Vector3& ko, const Basis& TBN); 
+    Vector3 sampleMediumLight(const Ray& ray, Medium* medium, const Vector3& pos); 
     bool testRay(Ray ray, Float t0, Float t1, RayHit& hit);
     
     RTCPUConfig conf;

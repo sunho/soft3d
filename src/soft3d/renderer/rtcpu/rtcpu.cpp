@@ -37,7 +37,7 @@ void RTCPURenderer::render(Image& screen) {
     threadPool.flush(conf.threadNum);
     quit.store(true, std::memory_order_acquire);
     timerThread.join();
-    screen.sigmoidToneMap(0.05f);
+    screen.sigmoidToneMap(0.1f);
 }
 
 void RTCPURenderer::renderPixel(const Vector2& pos, Image& screen) {
@@ -60,72 +60,86 @@ Vector3 RTCPURenderer::rayColor(Ray ray, Vector2 sample) {
     Float t1 = INF;
     Vector3 pixel;
 
-    const auto getTBNBasis = [&](Vector3 normal, Vector3 dir) {
-        Vector3 w = normal.normalized();
-        Vector3 u = w.x() > w.y() ? Vector3(0, 1, 0).cross(w).normalized() : Vector3(1, 0, 0).cross(w).normalized();
-        Vector3 v = w.cross(u);
-        return Basis{ u, v, w };
-    };
     Intersection ins;
     RayHit hit;
     Basis TBN;
     bool wasSpecular=false;
     while (true) {
+
+        ++bounce;
+        if (bounce == 10) {
+            break;
+        }
         if (!testRay(ray, t0, t1, hit)) {
             Vector2 uv = convertSphereTexcoord(ray.dir.normalized());
-            Vector3 Le = 2.18*PI*sampleBilinear(*scene.environmentMap, uv, true);
+            Vector3 Le = 4*PI*sampleBilinear(*scene.environmentMap, uv, true);
             pixel += weight*Le;
-            if (wasSpecular) {
-                for (auto light : scene.lights.list()) {
-                    Vector3 dir = light->sampleDir(hit.pos);
-                    RayHit dummy;
-                    if (!testRay(Ray{ hit.pos, dir, false }, conf.closeTime, 1.0f - conf.closeEpsillon, dummy)) {
-                        Vector3 dd = dir.normalized();
-                        Vector3 ki = Vector3(TBN.u.dot(dd), TBN.v.dot(dd), TBN.w.dot(dd));
-                        Vector3 brdf = hit.geom->material.brdf->eval(ins, ki);
-                        pixel += weight*light->Le(brdf, ki, dir);
-                    }
-                }
-            }
             break;
         }
         Vector3 invDir = -1*ray.dir;
-        TBN = getTBNBasis(hit.normal, invDir);
-        ins.sepcular = hit.geom->material.specular;
-        ins.diffuse = hit.geom->material.diffuse;
-        if (hit.geom->texture) {
-            ins.diffuse = sampleBilinear(*hit.geom->texture, hit.uv);
+        if (hit.gnormal.dot(invDir) <= 0.0f) {
+            ray.medium = hit.geom->material.medium;
         }
-        ins.ko = Vector3(TBN.u.dot(invDir), TBN.v.dot(invDir), TBN.w.dot(invDir));
-        if (wasSpecular) {
-            Vector3 Le = sampleLight(hit.geom, ins,hit.pos, hit.normal, ins.ko, TBN); 
-            pixel += weight * Le;
+        TBN = Basis(hit.gnormal.normalized());
+        if (ray.medium) {
+            Vector3 w;
+            Ray newRay;
+            bool wasMed = ray.medium->sample(ray, hit.time, w, newRay);
+            weight *= w;
+            if (weight.isZero()) {
+                break;
+            }
+            if (weight.hmin() < 0.0f) {
+                break;
+            }
+            if (wasMed) {
+                ray = newRay;
+                Vector3 Le = sampleMediumLight(ray, ray.medium, ray.origin); 
+                pixel += weight * Le;
+                continue;
+            } else {
+                ray.medium = nullptr;
+            }
         }
-        // normal coord = Basis^T * worldCoord
-        // = (u . dir, v . dir, w. dir)
-        Vector3 ki;
-        Float pdf;
-        Vector3 brdf = hit.geom->material.brdf->sample(ins, ki, pdf, wasSpecular);
-        t0 = conf.closeTime;
-        ray.origin = hit.pos;
-        Vector3 nextDir = ki.x() * TBN.u + ki.y() * TBN.v + ki.z() * TBN.w;
-        ray.dir = nextDir;
-        if (pdf == 0.0f) {
-            break;
-        }
-        if (hit.normal.dot(invDir) <= 0.0f) {
-            break;
-        }
-        
-        if (!wasSpecular) {
-            Vector3 Le = sampleLight(hit.geom, ins, hit.pos, hit.normal, ins.ko, TBN); 
-            pixel += weight * Le;
-        }
-        weight *= brdf * hit.normal.dot(ray.dir) / pdf;
+        if (hit.geom->material.brdf) {
+            ins.sepcular = hit.geom->material.specular;
+            ins.diffuse = hit.geom->material.diffuse;
+            if (hit.geom->texture) {
+                ins.diffuse = sampleBilinear(*hit.geom->texture, hit.uv);
+            }
+            ins.ko = Vector3(TBN.u.dot(invDir), TBN.v.dot(invDir), TBN.w.dot(invDir));
+            if (wasSpecular) {
+                Vector3 Le = sampleLight(hit.geom, ins, hit.pos, hit.normal, ins.ko, TBN);
+                pixel += weight * Le;
+            }
+            // normal coord = Basis^T * worldCoord
+            // = (u . dir, v . dir, w. dir)
+            Vector3 ki;
+            Float pdf;
+            Vector3 brdf = hit.geom->material.brdf->sample(ins, ki, pdf, wasSpecular);
+            t0 = conf.closeTime;
+            ray.origin = hit.pos;
+            Vector3 nextDir = ki.x() * TBN.u + ki.y() * TBN.v + ki.z() * TBN.w;
+            ray.dir = nextDir;
+            ray.dir.normalize();
+            if (pdf == 0.0f) {
+                break;
+            }
 
-        ++bounce;
-        if (bounce == 4) {
-            break;
+            if (!wasSpecular) {
+                Vector3 Le = sampleLight(hit.geom, ins, hit.pos, hit.normal, ins.ko, TBN);
+                pixel += weight * Le;
+            }
+            weight *= brdf * fabs(hit.normal.dot(ray.dir)) / pdf;
+            if (weight.isZero()) {
+                break;
+            }
+            if (weight.hmin() < 0.0f) {
+                break;
+            }
+            //ray.origin += ray.dir * conf.closeTime;
+        } else {
+            ray.origin += ray.dir * (hit.time + conf.closeTime);
         }
     }
 
@@ -139,12 +153,30 @@ Vector3 RTCPURenderer::sampleLight(Geometry* geom, const Intersection& ins, cons
     Light* light = lights[i];
     Vector3 dir = light->sampleDir(pos);
     RayHit hit;
-    if (!testRay(Ray{ pos, dir, false }, conf.closeTime, 1.0f - conf.closeEpsillon, hit)) {
+    if (!testRay(Ray{ pos, dir, true }, conf.closeTime, 1.0f - conf.closeEpsillon, hit)) {
         Vector3 dd = dir.normalized();
         Vector3 ki = Vector3(TBN.u.dot(dd), TBN.v.dot(dd), TBN.w.dot(dd));
         Vector3 brdf = geom->material.brdf->eval(ins, ki);
         return light->Le(brdf, ki, dir);
     }
+    return Vector3(0, 0, 0);
+}
+    
+Vector3 RTCPURenderer::sampleMediumLight(const Ray& ray, Medium* medium, const Vector3& pos) {
+    auto& lights = scene.lights.list();
+    size_t i = rand() % lights.size();
+    Light* light = lights[i];
+    Vector3 dir = light->sampleDir(pos);
+    RayHit hit;
+    //if (!testRay(Ray{ pos, dir, true }, conf.closeTime, 1.0f - conf.closeEpsillon, hit)) {
+        Ray ray2{ pos, dir };
+        if (testRay(ray2, 0.0f, INF, hit)) {
+            Vector3 dd = dir.normalized();
+            Vector3 tr = medium->Tr(ray2, hit.time);
+            return light->Le() * tr / medium->phaseP(ray.dir.normalized(), dd);
+        }
+        //printf("asdfsaf\n");
+    //}
     return Vector3(0, 0, 0);
 }
     

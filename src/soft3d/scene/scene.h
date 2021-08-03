@@ -61,6 +61,7 @@ struct Light {
     }
     virtual Vector3 sampleDir(const Vector3& pos) = 0;
     virtual Vector3 Le(const Vector3& brdf, const Vector3& ki, const Vector3& dir) = 0;
+    virtual Vector3 Le() = 0;
 };
 
 struct DirectionalLight : public Light {
@@ -75,6 +76,10 @@ struct DirectionalLight : public Light {
     Vector3 Le(const Vector3& brdf, const Vector3& ki, const Vector3& dir) override {
         Float cosTh = clamp(Vector3(0,0,1).dot(ki), 0.0f, 1.0f);
         return intensity * cosTh * clamp(-dir.normalized().dot(v), 0.0f, 1.0f) * brdf;
+    }
+
+    Vector3 Le() override {
+        return intensity;
     }
     Vector3 intensity;
     Vector3 v;
@@ -103,6 +108,10 @@ struct AreaLight : public Light {
         Float cosTh = clamp(Vector3(0,0,1).dot(ki), 0.0f, 1.0f);
         Float cosThd = clamp(-lightN.dot(dir.normalized()), 0.0f, 1.0f);
         return intensity * cosTh * cosThd * brdf / dir.norm2();
+    }
+
+    Vector3 Le() override {
+        return intensity;
     }
 
     Vector3 intensity;

@@ -47,6 +47,18 @@ struct GVector : public details::ctrp<T, F> {
             }
         }
     }
+    
+    friend T operator-(const T& obj) {
+        return -1 * obj;
+    }
+
+    friend inline T operator/(F scalar, const T& vec) {
+        T out = vec;
+        for (size_t i = 0; i < n; ++i) {
+            out[i] = scalar / out[i];
+        }
+        return out;
+    }
 
     friend inline T operator*(F scalar, const T& vec) {
         T out = vec;
@@ -186,7 +198,7 @@ struct GVector : public details::ctrp<T, F> {
     
     bool hasNan() const {
         for (size_t i = 0; i < n; ++i) {
-            if (isnan(data[i])) {
+            if (isnan(data[i]) || !isfinite(data[i])) {
                 return true;
             }
         }
@@ -276,6 +288,9 @@ struct GVector4;
 template <typename F>
 struct GMatrix;
 
+constexpr float EPSILON = 1e-8;
+constexpr float ZERO_EPSILON = 1e-4;
+
 template <typename F>
 struct GVector3 final : public GVector<GVector3<F>, F, 3> {
     GVector3() : GVector<GVector3<F>, F, 3>() {
@@ -315,6 +330,10 @@ struct GVector3 final : public GVector<GVector3<F>, F, 3> {
 
     const F& x() const {
         return this->data[0];
+    }
+
+    bool isZero() const {
+        return fabs(x()) <= ZERO_EPSILON && fabs(y()) <= ZERO_EPSILON && fabs(z()) <= ZERO_EPSILON;
     }
     const F& y() const {
         return this->data[1];
@@ -569,8 +588,25 @@ struct Basis {
     Basis(const Matrix& mat)
         : u(mat.sliceColVector3(0)), v(mat.sliceColVector3(1)), w(mat.sliceColVector3(2)) {
     }
+    Basis(Vector3 w) : w(w) {
+        if (abs(w.x()) > abs(w.y())) {
+            u = Vector3(-w.z(), 0.0f, w.x()) / sqrt(w.x() * w.x() + w.z() * w.z());
+        } else {
+            u = Vector3(0.0f, w.z(), -w.y()) / sqrt(w.y() * w.y() + w.z() * w.z());
+        }
+        v = w.cross(u);
+    }  
     Basis(Vector3 u, Vector3 v, Vector3 w) : u(u), v(v), w(w) {
     }
+
+    Vector3 fromGlobal(Vector3 k) {
+        return Vector3(u.dot(k), v.dot(k), w.dot(k));
+    }
+
+    Vector3 toGlobal(Vector3 k) {
+        return k.x() * u + k.y() * v + k.z() * w;
+    }
+
     Vector3 u{ 1.0f, 0.0f, 0.0f };
     Vector3 v{ 0.0f, 1.0f, 0.0f };
     Vector3 w{ 0.0f, 0.0f, 1.0f };
@@ -579,5 +615,10 @@ struct Basis {
         return Matrix(3, 3, { u[0], v[0], w[0], u[1], v[1], w[1], u[2], v[2], w[2] });
     }
 };
+
+static Vector3 sphericalDir(Float cosTh, Float sinTh, Float phi) {
+    return Vector3(sinTh * cos(phi), sinTh * sin(phi), cosTh);
+}
+
 
 static Matrix I4x4 = Matrix(4, 4, { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 });
