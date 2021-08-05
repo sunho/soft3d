@@ -32,7 +32,11 @@ void instantiateMesh(Scene& scene, Model& model, int i, Material material, std::
         tri.vB.pos = vb;
         tri.vC.pos = vc;
         tri.curve = Triangle3(va, vb, vc);
-        scene.geoms.construct<Triangle>(tri);
+        auto geom = scene.geoms.construct<Triangle>(tri);
+        if (material.medium) {
+            geom->alpha = true;
+            //geom->material.medium = nullptr;
+        }
     }
 }
 
@@ -53,8 +57,10 @@ struct VolumeScatter : public App {
         Image* envMapId = scene.textures.construct<Image>(envMap);
         scene.environmentMap = envMapId;
         //scene.lights.construct<DirectionalLight>(Vector3(1,1,1)*4.0f, Vector3(-1.0, -1.0, -1.0).normalized(), 5.0f);
-        scene.lights.construct<AreaLight>(Vector3(1, 1, 1)*13, Vector3(-4, 7, 26),
-                                          Vector3(0.0, 6.0, 0.0), Vector3(6.0, 0.0, 0.0));
+        auto l = scene.lights.construct<DiskLight>(Vector3(1, 1, 1)*10, Vector3(-4, 7, 26), 2.5f);
+        l->lookAt(Vector3(0,0,0));
+        //auto l2 = scene.lights.construct<DiskLight>(Vector3(1, 1, 1)*10, Vector3(0, 13, 0), 5f);
+        //l2->lookAt(Vector3(0,0,0));
             //        lightSystem.lights.move({ AreaLight{ 0.5, Vector3(-0.2, 0.3, 1.0), Vector3(0.0, 0.4, 0.0),
 //                                             Vector3(0.4, 0.0, 0.0) } });
         //scene.lights.construct<DirectionalLight>(Vector3(0x3ff2ce)*3.0f, Vector3(-1.0, 0.0, -1.0).normalized(), 5.0f);
@@ -62,21 +68,25 @@ struct VolumeScatter : public App {
 
         Material material1 = {
             .diffuse = Vector3(0x6e6e6e), .brdf = scene.brdfs.construct<DielectricBRDF>(1.3),
-            /*.medium = new HomoMedium(2.0f*(Vector3(1,1,1)-Vector3(0x402000)),
-             0.0f*(Vector3(0x120900)), new HenyeyGreenstein(0.8))*/
+            .medium = new HomoMedium(3.0f*(Vector3(1,1,1)-Vector3(0x402000)),
+                                     0.0f*(Vector3(0.7,0.7,0.7)), new HenyeyGreenstein(-0.8))
         };
         Material material2 = {
-            .diffuse = Vector3(0x6e6e6e), .brdf = scene.brdfs.construct<AntPhongBRDF>(0.3,50,50)
+            .diffuse = Vector3(1,1,1), .brdf = scene.brdfs.construct<GlossyBRDF>(0.4, 0.2)
         };
+        Material spoonMat = {
+            .diffuse = Vector3(0.7,0.7,0.7), .brdf = scene.brdfs.construct<GlossyBRDF>(0.9, 0.2)
+           };
         Material material3 = { .diffuse = Vector3(0.7, 0.7, 0.7) };
 
         Material defaultMat = { .diffuse = Vector3(1.0, 1.0, 1.0),
-                               .brdf = scene.brdfs.construct<LambertianBRDF>() };
+                               .brdf = scene.brdfs.construct<GlossyBRDF>(0.1, 0.2) };
 
         std::map<std::string, Material> materialMap;
         materialMap["cafe"] = material1;
         materialMap["porcelana"] = material2;
         materialMap["Material"] = material2;
+        materialMap["None"] = spoonMat;
         Model cup = loadObj("resources/cup.obj");
         for (int i = 0; i < cup.meshes.size(); ++i) {
             Material current;

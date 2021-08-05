@@ -76,6 +76,9 @@ struct BvhTree {
                 }
                 return false;
             } else {
+                if (ray.isShadow && node->geom->alpha) {
+                    return false;
+                }
                 return node->geom->rayTest(ray, t0, t1, hit);
             }
         } else {

@@ -65,22 +65,21 @@ Vector3 RTCPURenderer::rayColor(Ray ray, Vector2 sample) {
     Basis TBN;
     bool wasSpecular=false;
     while (true) {
-
         ++bounce;
         if (bounce == 10) {
             break;
         }
         if (!testRay(ray, t0, t1, hit)) {
             Vector2 uv = convertSphereTexcoord(ray.dir.normalized());
-            Vector3 Le = 4*PI*sampleBilinear(*scene.environmentMap, uv, true);
+            Vector3 Le = 0.05*PI*sampleBilinear(*scene.environmentMap, uv, true);
             pixel += weight*Le;
             break;
         }
         Vector3 invDir = -1*ray.dir;
-        if (hit.gnormal.dot(invDir) <= 0.0f) {
+        if (hit.normal.dot(invDir) <= 0.0f) {
             ray.medium = hit.geom->material.medium;
         }
-        TBN = Basis(hit.gnormal.normalized());
+        TBN = Basis(hit.normal.normalized());
         if (ray.medium) {
             Vector3 w;
             Ray newRay;
@@ -168,7 +167,7 @@ Vector3 RTCPURenderer::sampleMediumLight(const Ray& ray, Medium* medium, const V
     Light* light = lights[i];
     Vector3 dir = light->sampleDir(pos);
     RayHit hit;
-    //if (!testRay(Ray{ pos, dir, true }, conf.closeTime, 1.0f - conf.closeEpsillon, hit)) {
+    if (!testRay(Ray{ pos, dir, true }, conf.closeTime, 1.0f - conf.closeEpsillon, hit)) {
         Ray ray2{ pos, dir };
         if (testRay(ray2, 0.0f, INF, hit)) {
             Vector3 dd = dir.normalized();
@@ -176,7 +175,7 @@ Vector3 RTCPURenderer::sampleMediumLight(const Ray& ray, Medium* medium, const V
             return light->Le() * tr / medium->phaseP(ray.dir.normalized(), dd);
         }
         //printf("asdfsaf\n");
-    //}
+    }
     return Vector3(0, 0, 0);
 }
     

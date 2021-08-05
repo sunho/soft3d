@@ -32,6 +32,22 @@ static Vector3 sampleHemisphere(const Vector2& sample) {
     return Vector3(u, v, w);
 }
 
+static Vector2 sampleConcentric(const Vector2& sample) {
+    Vector2 u = 2.0f* sample - 1.0f;
+    if (u.x() == 0.0f && u.y() == 0.0f) {
+        return Vector2(0.0f, 0.0f);
+    }
+    Float r, th;
+    if (fabs(u.x()) > fabs(u.y())) {
+        r = u.x();
+        th = (PI/4.0f)*(u.y()/u.x());
+    } else {
+        r = u.y();
+        th = PI/2.0f - (PI/4.0f)*(u.x()/u.y());
+    }
+    return Vector2(r*cos(th), r*sin(th));
+}
+
 static Vector3 sampleHalfVector(const Vector2& sample, Float nu, Float nv, Float& phi) { 
     Float delPhi;
     Float j1;
@@ -63,7 +79,6 @@ static Vector3 sampleHalfVector(const Vector2& sample, Float nu, Float nv, Float
     Float sinTh = sin(th);
     return Vector3(cosPhi * sinTh, sinPhi * sinTh, cosTh);
 }
-
 
 struct BRDF {
     BRDF() = default;
@@ -114,6 +129,23 @@ struct SpecularBRDF : public BRDF {
     }
 };
 
+/*
+
+ static bool refractRay(const Vector3 ko, const Vector3 normal, Float index, Vector3& ki) {
+     Float cosTh = ko.dot(normal);
+     Float sinTh2 = std::max(0.0f, 1-cosTh*cosTh);
+     Float sinPhi2 = sinTh2 / (index * index);
+     if (sinPhi2 >= 1) {
+         return false;
+     }
+     Float cosPhi = sqrt(1-sinPhi2);
+     Vector3 firstTerm = (ko - normal* cosTh) / index;
+     Vector3 secondTerm = normal* cosPhi;
+     ki = (firstTerm - secondTerm).normalized();
+     return true;
+ }
+
+ */
 static bool refractRay(const Vector3 ko, const Vector3 normal, Float index, Vector3& ki) {
     Float cosTh = ko.dot(normal);
     Float cosPhi2 = 1 - (1 - cosTh * cosTh) / (index * index);
@@ -139,44 +171,43 @@ struct DielectricBRDF : public BRDF {
     Vector3 sample(const Intersection& intersection, Vector3& ki, Float& pdf, bool& wasSpecular) override {
         Vector3 normal;
         Float i;
-        Float cosTh;
+        bool internal;
+        Vector3 refract;
+        Float F;
         if (intersection.ko.dot(Vector3(0, 0, 1)) > 0.0f) {
             // from outside
             i = index;
             normal = Vector3(0, 0, 1);
-            cosTh = intersection.ko.dot(normal);
+            internal = !refractRay(intersection.ko, normal, i, refract);
+            F = fresnel(R0, intersection.ko.dot(normal));
         } else {
             // from inside
             i = 1.0f/index;
             normal = Vector3(0, 0, -1.0f);
-            cosTh = intersection.ko.dot(normal);
-            //printf("asdfsdf");
+            internal = !refractRay(intersection.ko, normal, i, refract);
+            if (internal) {
+                F = 1.0f;
+            } else {
+                F = fresnel(R0, refract.dot(Vector3(0,0,1)));
+            }
         }
-        if (cosTh == 0.0f) {
-            pdf = 0.0f;
-            return Vector3(0, 0, 0);
-        }
-        if (cosTh < 0.0f) {
-            printf("asdf");
-        }
-        Float F = fresnel(R0, cosTh);
         if (randUniform() < F) {
             ki = Vector3(-intersection.ko.x(), -intersection.ko.y(), intersection.ko.z());
             wasSpecular = true;
             pdf = F;
+            Float cosTh = ki.dot(normal);
             if (cosTh == 0.0f) {
-                return Vector3(0, 0, 0);
-            }
-            return F * intersection.sepcular / cosTh; 
-        } else {
-            if (!refractRay(intersection.ko, normal, i, ki)) {
                 pdf = 0.0f;
-                return Vector3(1, 0, 0);
+                return Vector3(0,0,0);
             }
+            return F * intersection.sepcular / cosTh;
+        } else {
+            ki = refract;
             pdf = 1 - F;
             if (ki.dot(normal) > 0) {
                 printf("fuck\n");
             }
+            Float cosTh = -refract.dot(normal);
             return intersection.sepcular *i * i * (1 - F) / cosTh;
         }
     }
@@ -217,6 +248,106 @@ struct CoupledBRDF : public BRDF {
         return (Rs + cosThTerm * (1.0f - Rs)) * specBRDF * Vector3(1, 1, 1) +
                K * intersection.diffuse * (1.0f - cosThTerm) * (1.0f - cosThdTerm);
     }
+};
+
+static Vector3 sampleMicrofacetHalfVector(const Vector2& sample, Float alpha, Float& phi) {
+    Float l = log(1-sample[0]);
+    if (isinf(l)) l = 0.0f;
+    Float tan2Th = -alpha*alpha *l;
+    Float cosTh = 1 / sqrt(1+tan2Th);
+    Float sinTh = sqrt(std::max(0.0f, 1-cosTh*cosTh));
+    phi = 2*PI*sample[1];
+    Float cosPhi = cos(phi);
+    Float sinPhi = sin(phi);
+    return Vector3(cosPhi * sinTh, sinPhi * sinTh, cosTh);
+}
+
+static Float beckmannMicrofacet(Vector3 half, Float alpha) {
+    Float cosTh2 = half.z() * half.z();
+    Float sinTh2 = 1 - cosTh2;
+    Float tanTh2 = sinTh2 / cosTh2;
+    Float tanTh = sqrt(tanTh2);
+    Float cosTh = sqrt(cosTh2);
+    Float d = exp(-tanTh*tanTh/(alpha*alpha));
+    Float k = PI * alpha * alpha * cosTh*cosTh*cosTh*cosTh;
+    return d/k;
+}
+
+
+struct GlossyBRDF : public BRDF {
+    GlossyBRDF() = default;
+    ~GlossyBRDF() {
+    }
+    GlossyBRDF(Float Rs, Float alpha) : Rs(Rs), alpha(alpha) {
+        
+    }
+    Vector3 sample(const Intersection& intersection, Vector3& ki, Float& pdf, bool& wasSpecular) override {
+        if (randUniform() < 0.5) {
+            Float phi;
+            Vector3 half = sampleMicrofacetHalfVector(Vector2(randUniform(), randUniform()), alpha, phi);
+            if (half.z() < 0.0f) {
+                half *= -1;
+            }
+            half.normalized();
+            Float koh = std::min(intersection.ko.dot(half), 1.0f);
+            if (intersection.ko.z() <= 0.0f) {
+                pdf = 0.0f;
+                return Vector3(0,0,0);
+            }
+            if (koh <= 0.0f) {
+                pdf = 0.0f;
+                return Vector3(0,0,0);
+            }
+            Float cosTh = half.dot(Vector3(0,0,1));
+            ki = 2 * koh * half - intersection.ko;
+            pdf = 1.0f;
+            pdf = beckmannMicrofacet(half, alpha) * cosTh / (4*koh);
+            if (pdf <0.0f || isnan(pdf) || !isfinite(pdf)) {
+                printf("asdfasdf\n");
+            }
+            pdf *= 0.5;
+        } else {
+            // Diffuse
+            ki = sampleHemisphere(Vector2(randUniform(), randUniform()));
+            pdf = ki.dot(Vector3(0, 0, 1)) / (PI);
+            pdf *= 0.5f;
+        }
+        return eval(intersection, ki);
+    }
+
+    Vector3 eval(const Intersection& intersection, const Vector3& ki) override {
+        Vector3 half = (intersection.ko + ki).normalized();
+        Float kh = std::min(intersection.ko.dot(half), 1.0f);
+        if (kh < 0.0f) {
+            return Vector3(0,0,0);
+        }
+        if (ki.z() <= 0.0f) {
+            return Vector3(0, 0, 0);
+        }
+        Float D = beckmannMicrofacet(half, alpha);
+        Float kin = Vector3(0,0,1).dot(ki);
+        Float kon = Vector3(0, 0, 1).dot(intersection.ko);
+        Float F = fresnel(Rs, kh);
+        Float k = 4*kh*std::max(kin,kon);
+        Vector3 specBRDF = intersection.sepcular * F * D / k;
+        
+        if (kin <= 0.0f) {
+            return Vector3(0,0,0);
+        }
+        Float cosThTerm = pow(1.0f - kon / 2.0f, 5.0f);
+        Float cosThdTerm = pow(1.0f - kin / 2.0f, 5.0f);
+        Vector3 K = 28.0f * intersection.diffuse / (23.0f * PI);
+        Vector3 diffuseBRDF = K * (1 - Rs) * (1 - cosThTerm) * (1 - cosThdTerm);
+        if (specBRDF.hasNan()) {
+            printf("fuck\n");
+        }
+        if (specBRDF.hmin() < 0.0f) {
+            printf("fuck2\n");
+        }
+        return specBRDF + diffuseBRDF;
+    }
+    Float Rs;
+    Float alpha;
 };
 
 struct AntPhongBRDF : public BRDF {
@@ -406,6 +537,7 @@ struct Geometry {
     virtual size_t rasterizeDataSize() = 0;
     Material material{};
     Image* texture{};
+    bool alpha{false};
 };
 
 struct Sphere : public Geometry {
@@ -593,4 +725,111 @@ struct Triangle : public Geometry {
     size_t rasterizeDataSize() override {
         return 1;
     }
+};
+
+struct Light {
+    Light() = default;
+    virtual ~Light() {
+    }
+    virtual Vector3 sampleDir(const Vector3& pos) = 0;
+    virtual Vector3 Le(const Vector3& brdf, const Vector3& ki, const Vector3& dir) = 0;
+    virtual Vector3 Le() = 0;
+};
+
+struct DirectionalLight : public Light {
+    DirectionalLight() = default;
+    ~DirectionalLight() {
+    }
+    DirectionalLight(Vector3 intensity, Vector3 v, Float R) : intensity(intensity), v(v), R(R) {
+    }
+    Vector3 sampleDir(const Vector3& pos) override {
+        return -10000.0f * v; // hack
+    }
+    Vector3 Le(const Vector3& brdf, const Vector3& ki, const Vector3& dir) override {
+        Float cosTh = clamp(Vector3(0,0,1).dot(ki), 0.0f, 1.0f);
+        return intensity * cosTh * clamp(-dir.normalized().dot(v), 0.0f, 1.0f) * brdf;
+    }
+
+    Vector3 Le() override {
+        return intensity;
+    }
+    Vector3 intensity;
+    Vector3 v;
+    Float R;
+};
+
+struct AreaLight : public Light {
+    AreaLight() = default;
+    ~AreaLight() {
+    }
+    AreaLight(Vector3 intensity, Vector3 pos, Vector3 edge1, Vector3 edge2)
+        : intensity(intensity)
+        , pos(pos)
+        , edge1(edge1), edge2(edge2) {
+    }
+
+    Vector3 sampleDir(const Vector3& pos) override {
+        Float u = randUniform();
+        Float v = randUniform();
+        Vector3 lightPos = this->pos + u * edge1 + v * edge2;
+        return lightPos - pos;
+    }
+
+    Vector3 Le(const Vector3& brdf, const Vector3& ki, const Vector3& dir) override {
+        Float lightA = edge1.cross(edge2).norm();
+        Vector3 lightN = edge1.cross(edge2).normalized();
+        Float cosTh = clamp(Vector3(0,0,1).dot(ki), 0.0f, 1.0f);
+        Float cosThd = clamp(-lightN.dot(dir.normalized()), 0.0f, 1.0f);
+        return lightA * PI * intensity * cosTh * cosThd * brdf / dir.norm2();
+    }
+
+    Vector3 Le() override {
+        return intensity;
+    }
+
+    Vector3 intensity;
+    Vector3 pos;
+    Vector3 edge1;
+    Vector3 edge2;
+};
+
+struct DiskLight : public Light {
+    DiskLight() = default;
+    ~DiskLight() {
+    }
+    DiskLight(Vector3 intensity, Vector3 pos, Float R)
+        : intensity(intensity)
+        , origin(pos)
+        , normal(Vector3{0,0,1}),
+        R(R){
+        basis = Basis(normal);
+    }
+    
+    void lookAt(Vector3 look) {
+        normal = (look - origin).normalized();
+        basis = Basis(normal);
+    }
+
+    Vector3 sampleDir(const Vector3& pos) override {
+        Vector2 u = R * sampleConcentric(Vector2(randUniform(), randUniform()));
+        Vector3 lightPos = origin + basis.toGlobal(Vector3(u[0], u[1], 0.0f));
+        return lightPos - pos;
+    }
+
+    Vector3 Le(const Vector3& brdf, const Vector3& ki, const Vector3& dir) override {
+        Float lightA = R*R*PI;
+        Float cosTh = clamp(Vector3(0,0,1).dot(ki), 0.0f, 1.0f);
+        Float cosThd = clamp(-normal.dot(dir.normalized()), 0.0f, 1.0f);
+        return lightA * intensity *cosTh*cosThd*brdf / dir.norm2();
+    }
+
+    Vector3 Le() override {
+        return intensity;
+    }
+
+    Basis basis;
+    Vector3 intensity;
+    Vector3 origin;
+    Vector3 normal;
+    Float R;
 };
