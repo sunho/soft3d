@@ -25,19 +25,6 @@ static Float fresnelDie(Float R0, Float cosTh) {
     return R0 + (1 - R0) * (a*a*a*a*a);
 }
 
-static bool refractRay(const Vector3 ko, const Vector3 normal, Float index, Vector3& ki) {
-    Float cosTh = ko.dot(normal);
-    Float cosPhi2 = 1 - (1 - cosTh * cosTh) / (index * index);
-    if (cosPhi2 < 0.0f) {
-        // total internal reflection
-        return false;
-    }
-    Vector3 firstTerm = (ko - normal* cosTh) / index;
-    Vector3 secondTerm = normal* sqrt(cosPhi2);
-    ki = (firstTerm - secondTerm).normalized();
-    return true;
-}
-
 static Vector3 sampleHemisphere(const Vector2& sample) {
     Float u = cos(2 * PI * sample.x()) * sqrt(sample.y());
     Float v = sin(2 * PI * sample.x()) * sqrt(sample.y());
@@ -92,11 +79,18 @@ struct LambertianBRDF : public BRDF {
     }
 
     Vector3 sample(const Intersection& intersection, Vector3& ki, Float& pdf, bool& wasSpecular) override {
+        if (intersection.ko.dot(Vector3(0, 0, 1)) < 0.0f) {
+            pdf = 0.0f;
+            return Vector3(0, 0, 0);
+        }
         ki = sampleHemisphere(Vector2(randUniform(), randUniform()));
         pdf = ki.dot(Vector3(0, 0, 1)) / PI;
         return eval(intersection, ki);
     }
     Vector3 eval(const Intersection& intersection, const Vector3& ki) override {
+        if (intersection.ko.dot(Vector3(0, 0, 1)) < 0.0f) {
+            return Vector3(0, 0, 0);
+        }
         return intersection.diffuse * (1.0f / PI);
     }
 };
@@ -119,6 +113,20 @@ struct SpecularBRDF : public BRDF {
         return intersection.sepcular * fresnel(R0, cosTh) / cosTh;
     }
 };
+
+static bool refractRay(const Vector3 ko, const Vector3 normal, Float index, Vector3& ki) {
+    Float cosTh = ko.dot(normal);
+    Float cosPhi2 = 1 - (1 - cosTh * cosTh) / (index * index);
+    //printf("%f %f\n", cosPhi2, index);
+    if (cosPhi2 < 0.0f) {
+        // total internal reflection
+        return false;
+    }
+    Vector3 firstTerm = (ko - normal* cosTh) / index;
+    Vector3 secondTerm = normal* sqrt(cosPhi2);
+    ki = (firstTerm - secondTerm).normalized();
+    return true;
+}
 
 struct DielectricBRDF : public BRDF {
     DielectricBRDF(Float index) : index(index) {
@@ -159,14 +167,17 @@ struct DielectricBRDF : public BRDF {
             if (cosTh == 0.0f) {
                 return Vector3(0, 0, 0);
             }
-            return 0.1*F * intersection.sepcular / cosTh; // *F removed because of uniform selection
+            return F * intersection.sepcular / cosTh; 
         } else {
             if (!refractRay(intersection.ko, normal, i, ki)) {
                 pdf = 0.0f;
-                return Vector3(0, 0, 0);
+                return Vector3(1, 0, 0);
             }
             pdf = 1 - F;
-            return 0.9*intersection.sepcular *i * i * (1 - F) / cosTh;
+            if (ki.dot(normal) > 0) {
+                printf("fuck\n");
+            }
+            return intersection.sepcular *i * i * (1 - F) / cosTh;
         }
     }
     Vector3 eval(const Intersection& intersection, const Vector3& ki) override {
@@ -422,10 +433,6 @@ struct Sphere : public Geometry {
         Float ecec = ec.dot(ec);
         Float D = dec * dec - dd * (ecec - radius * radius);
         bool test = nearGte(D, 0.0f);
-        Vector3 normal = ((hit.pos - center) / radius).normalized();
-        if (ray.isShadow && normal.dot(ray.dir) > 0) {
-            return false;
-        }
         if (test) {
             const Float t =
                 (-dec - sqrt(D)) / dd;  // use -sqrt(D) solution that should be the earlier hit
@@ -443,6 +450,10 @@ struct Sphere : public Geometry {
                 // on the surface, |(p-c)| = r (from solving f(p))
                 // |2(p-c)| = 2|p-c| = 2r
                 // unit grad = (p-c)/r
+                Vector3 normal = ((hit.pos - center) / radius).normalized();
+                if (ray.isShadow && normal.dot(ray.dir) > 0) {
+                    return false;
+                }
                 hit.normal = normal;
                 hit.gnormal = normal;
                 hit.geom = this;

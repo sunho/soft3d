@@ -107,7 +107,7 @@ Vector3 RTCPURenderer::rayColor(Ray ray, Vector2 sample) {
             if (hit.geom->texture) {
                 ins.diffuse = sampleBilinear(*hit.geom->texture, hit.uv);
             }
-            ins.ko = Vector3(TBN.u.dot(invDir), TBN.v.dot(invDir), TBN.w.dot(invDir));
+            ins.ko = TBN.fromGlobal(invDir);
             if (wasSpecular) {
                 Vector3 Le = sampleLight(hit.geom, ins, hit.pos, hit.normal, ins.ko, TBN);
                 pixel += weight * Le;

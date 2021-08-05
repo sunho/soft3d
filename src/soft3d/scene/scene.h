@@ -104,10 +104,11 @@ struct AreaLight : public Light {
     }
 
     Vector3 Le(const Vector3& brdf, const Vector3& ki, const Vector3& dir) override {
+        Float lightA = edge1.cross(edge2).norm();
         Vector3 lightN = edge1.cross(edge2).normalized();
         Float cosTh = clamp(Vector3(0,0,1).dot(ki), 0.0f, 1.0f);
         Float cosThd = clamp(-lightN.dot(dir.normalized()), 0.0f, 1.0f);
-        return intensity * cosTh * cosThd * brdf / dir.norm2();
+        return lightA * PI * intensity * cosTh * cosThd * brdf / dir.norm2();
     }
 
     Vector3 Le() override {

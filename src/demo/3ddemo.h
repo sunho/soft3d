@@ -47,40 +47,47 @@ struct VolumeScatter : public App {
         basis.u = Vector3(1.0, 0.0, 0.0);
         basis.v = Vector3(0.0, 1.0, 0.0);
         basis.w = Vector3(0.0, 0.0, 1.0);
-        scene.camera = Camera(Vector3(1.3, 1.3, 1.3), basis, 1.0);
-        scene.camera.lookAt(Vector3(0, 0.3, 0), Vector3(0, 1, 0));
-        Image envMap = loadTexture("resources/env-midday.png");
+        scene.camera = Camera(Vector3(-4, 7, 26), basis, 1.0);
+        scene.camera.lookAt(Vector3(0, 0.0, 0), Vector3(0, 1, 0));
+        Image envMap = loadTexture("resources/env.jpg");
         Image* envMapId = scene.textures.construct<Image>(envMap);
         scene.environmentMap = envMapId;
-        scene.lights.construct<DirectionalLight>(Vector3(0xfff7c7)*4.0f, Vector3(-1.0, -1.0, -1.0).normalized(), 5.0f);
+        //scene.lights.construct<DirectionalLight>(Vector3(1,1,1)*4.0f, Vector3(-1.0, -1.0, -1.0).normalized(), 5.0f);
+        scene.lights.construct<AreaLight>(Vector3(1, 1, 1)*13, Vector3(-4, 7, 26),
+                                          Vector3(0.0, 6.0, 0.0), Vector3(6.0, 0.0, 0.0));
+            //        lightSystem.lights.move({ AreaLight{ 0.5, Vector3(-0.2, 0.3, 1.0), Vector3(0.0, 0.4, 0.0),
+//                                             Vector3(0.4, 0.0, 0.0) } });
         //scene.lights.construct<DirectionalLight>(Vector3(0x3ff2ce)*3.0f, Vector3(-1.0, 0.0, -1.0).normalized(), 5.0f);
         //scene.lights.construct<DirectionalLight>(Vector3(0xff334e)*3.0f, Vector3(1.0, 0.0, -1.0).normalized(), 5.0f);
 
         Material material1 = {
-            .diffuse = Vector3(0x6e6e6e), .brdf = scene.brdfs.construct<DielectricBRDF>(1.0),
-            //.medium = new HomoMedium(0.5f*(Vector3(1,1,1)-Vector3(0x37dbed)),
-            // Vector3(0.1,0.1,0.1), new HenyeyGreenstein(0.8))};
+            .diffuse = Vector3(0x6e6e6e), .brdf = scene.brdfs.construct<DielectricBRDF>(1.3),
+            /*.medium = new HomoMedium(2.0f*(Vector3(1,1,1)-Vector3(0x402000)),
+             0.0f*(Vector3(0x120900)), new HenyeyGreenstein(0.8))*/
+        };
+        Material material2 = {
+            .diffuse = Vector3(0x6e6e6e), .brdf = scene.brdfs.construct<AntPhongBRDF>(0.3,50,50)
         };
         Material material3 = { .diffuse = Vector3(0.7, 0.7, 0.7) };
 
-        Material material2 = { .diffuse = Vector3(0.7, 0.7, 0.7),
+        Material defaultMat = { .diffuse = Vector3(1.0, 1.0, 1.0),
                                .brdf = scene.brdfs.construct<LambertianBRDF>() };
 
-        //material2.brdf  = AntPhongBRDF{ .Rs = 0.8, .nu = 500, .nv = 500 };
-        Material materialwall = { .diffuse = Vector3(0.4, 0.4, 0.4),
-                                  //.idealReflect = Vector3(0.2, 0.2, 0.2),
-                                  .phong = 100.0 };
-        Material materialglass2 = { 
-                                    .ignoreShadow = false };
-        // scene.geoms.add({ PlainSphere(Vector3(-0.5, 0.3, 0.4), 0.25, materialglass2) });
-        //scene.geoms.add({ PlainSphere(Vector3(0.0, 0.98, 0.6), 0.32, materialglass) });
-
-        Float sz = -0.3;
-
-        Model wolf = loadObj("resources/rock.obj");
-        instantiateMesh(scene, wolf, 0, material1, "", translate3(0,0.5,0));
-        Model plane = loadObj("resources/plane.obj");
-        instantiateMesh(scene, plane, 0, material2, "", scale3(0.5,0.5,0.5));
+        std::map<std::string, Material> materialMap;
+        materialMap["cafe"] = material1;
+        materialMap["porcelana"] = material2;
+        materialMap["Material"] = material2;
+        Model cup = loadObj("resources/cup.obj");
+        for (int i = 0; i < cup.meshes.size(); ++i) {
+            Material current;
+            auto it = materialMap.find(cup.meshes[i].material);
+            if (it != materialMap.end()) {
+                current = it->second;
+            } else {
+                current = defaultMat;
+            }
+            instantiateMesh(scene, cup, i, current, "");
+        }
         // instantiateMesh(scene, model2, 0, materialglass, "");
         /*Model model = loadObj("resources/anime.obj");
         instantiateMesh(scene, model, 0, material3, "resources/body_v.jpeg", scale3(0.5,0.5,0.5));
@@ -396,5 +403,5 @@ struct Room : public App {
     {                                                                                              \
         Runtime rt(engineConf);                                                                    \
         App* d = new demo;                                                                         \
-        rt.render(d, "fb.png");                                                                    \
+        rt.renderHdr(d, "fb.hdr");                                                                    \
     }

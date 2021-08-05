@@ -10,7 +10,7 @@ struct RTCPUConfig {
     size_t maxWidth{ 1000 };
     size_t maxHeight{ 1000 };
     int maxRayHit{ 20 };
-    size_t pathSampleNum{ 1000};
+    size_t pathSampleNum{ 10};
     Float closeTime{ 0.0001f };
     Float closeEpsillon { 0.000001f };
 };

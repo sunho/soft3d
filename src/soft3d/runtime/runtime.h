@@ -49,6 +49,7 @@ struct Runtime {
 
     void run(App* app);
     void render(App* app, std::string path);
+    void renderHdr(App* app, std::string path);
     bool pressed(int keycode);
     double fps();
 

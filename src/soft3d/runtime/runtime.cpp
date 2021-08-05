@@ -108,6 +108,27 @@ void Runtime::render(App* app, std::string path) {
     stbi_write_png(path.c_str(), conf.width, conf.height, 4, data, conf.width * 4);
 }
 
+void Runtime::renderHdr(App* app, std::string path) {
+    this->app = app;
+    app->init(*this, renderer->sceneRef());
+    screen = Image(conf.width, conf.height);
+    lastFrame = std::chrono::system_clock::now();
+    auto data2 = update();
+    std::vector<float> data;
+    for (int i = 0; i < screen.getHeight(); ++i) {
+        for (int j = 0; j < screen.getWidth(); ++j) {
+            auto pixel = screen.getPixel(j, i);
+            data.push_back(pixel[0]);
+            data.push_back(pixel[1]);
+            data.push_back(pixel[2]);
+        }
+    }
+    stbi_flip_vertically_on_write(1);
+    stbi_write_hdr(path.c_str(), conf.width, conf.height, 3, data.data());
+    stbi_write_png((path + ".png").c_str(), conf.width, conf.height, 4, data2, conf.width * 4);
+}
+
+
 uint32_t* Runtime::update() {
     const auto currentFrame = std::chrono::system_clock::now();
     const int dt =

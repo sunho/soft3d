@@ -13,6 +13,7 @@ struct MeshIndex {
 };
 
 struct Mesh {
+    std::string material;
     std::vector<MeshIndex> indices;
 };
 

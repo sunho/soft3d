@@ -42,11 +42,12 @@ Model loadObj(std::string path) {
     std::vector<Vector2> texs;
     std::vector<MeshIndex> indices;
     std::string line;
+    std::string materialName;
     const auto flush = [&]() {
         if (vertices.size() == 0) {
             return;
         }
-        model.meshes.push_back(Mesh{ indices });
+        model.meshes.push_back(Mesh{ materialName, indices });
         indices.clear();
     };
     bool process = false;
@@ -86,6 +87,8 @@ Model loadObj(std::string path) {
                 indices.push_back({ cords[0] - 1, cords[1] - 1, cords[2] - 1 });
                 indices.push_back({ cords[3] - 1, cords[4] - 1, cords[5] - 1 });
                 indices.push_back({ cords[6] - 1, cords[7] - 1, cords[8] - 1 });
+            } else if (command == "usemtl") {
+                materialName = line.substr(pos+1); 
             } else {
                 printf("unknwon: %s\n", line.c_str());
             }
