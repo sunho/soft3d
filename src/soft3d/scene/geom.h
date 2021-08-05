@@ -180,6 +180,9 @@ struct DielectricBRDF : public BRDF {
             normal = Vector3(0, 0, 1);
             internal = !refractRay(intersection.ko, normal, i, refract);
             F = fresnel(R0, intersection.ko.dot(normal));
+            if (internal) {
+                printf("wtf\n");
+            }
         } else {
             // from inside
             i = 1.0f/index;
@@ -188,7 +191,7 @@ struct DielectricBRDF : public BRDF {
             if (internal) {
                 F = 1.0f;
             } else {
-                F = fresnel(R0, refract.dot(Vector3(0,0,1)));
+                F = fresnel(R0, -refract.dot(normal));
             }
         }
         if (randUniform() < F) {
@@ -208,7 +211,7 @@ struct DielectricBRDF : public BRDF {
                 printf("fuck\n");
             }
             Float cosTh = -refract.dot(normal);
-            return intersection.sepcular *i * i * (1 - F) / cosTh;
+            return intersection.sepcular * (1 - F) / cosTh;
         }
     }
     Vector3 eval(const Intersection& intersection, const Vector3& ki) override {
@@ -254,8 +257,8 @@ static Vector3 sampleMicrofacetHalfVector(const Vector2& sample, Float alpha, Fl
     Float l = log(1-sample[0]);
     if (isinf(l)) l = 0.0f;
     Float tan2Th = -alpha*alpha *l;
-    Float cosTh = 1 / sqrt(1+tan2Th);
-    Float sinTh = sqrt(std::max(0.0f, 1-cosTh*cosTh));
+    Float cosTh = std::min(1 / sqrt(1+tan2Th), 1.0f);
+    Float sinTh = sqrt(1-cosTh*cosTh);
     phi = 2*PI*sample[1];
     Float cosPhi = cos(phi);
     Float sinPhi = sin(phi);
@@ -285,9 +288,6 @@ struct GlossyBRDF : public BRDF {
         if (randUniform() < 0.5) {
             Float phi;
             Vector3 half = sampleMicrofacetHalfVector(Vector2(randUniform(), randUniform()), alpha, phi);
-            if (half.z() < 0.0f) {
-                half *= -1;
-            }
             half.normalized();
             Float koh = std::min(intersection.ko.dot(half), 1.0f);
             if (intersection.ko.z() <= 0.0f) {
@@ -322,6 +322,9 @@ struct GlossyBRDF : public BRDF {
             return Vector3(0,0,0);
         }
         if (ki.z() <= 0.0f) {
+            return Vector3(0, 0, 0);
+        }
+        if (intersection.ko.z() <= 0.0f) {
             return Vector3(0, 0, 0);
         }
         Float D = beckmannMicrofacet(half, alpha);
@@ -456,6 +459,7 @@ struct HenyeyGreenstein : public PhaseFunction {
             Float sqrtTerm = (1 - g * g) / (1 - g+ 2 * g * sample.x());
             cosTh = (1 + g * g - sqrtTerm * sqrtTerm) / (2 * g);
         }
+        //printf("%f\n",cosTh);
         Float sinTh = sqrt(std::max(0.0f, 1-cosTh*cosTh));
         Float phi = 2 * PI * sample.y();
         Vector3 del = sphericalDir(cosTh, sinTh, phi);
@@ -481,7 +485,7 @@ struct HomoMedium : public Medium {
     ~HomoMedium() {
     }
 
-    Float phaseP(const Vector3& ko, const Vector3& ki) {
+    Float phaseP(const Vector3& ko, const Vector3& ki) override {
         return phase->p(ko, ki);
     }
 
@@ -490,8 +494,9 @@ struct HomoMedium : public Medium {
         Float dist = -log(1.0f - randUniform()) / sigmat[channel];
         Float t = std::min(dist, time);
         bool sampledMed = dist < time;
-        Vector3 mpdf = sigmat * expVector(-sigmat * t);
+
         Vector3 tr = expVector(-sigmat * std::min(t, MAX_TIME));
+        Vector3 mpdf = sampledMed ? sigmat * tr : tr;
         Float pdf = (mpdf.x() + mpdf.y() + mpdf.z()) / 3.0f;
         if (sampledMed) {
             newRay.origin = ray.origin + ray.dir * t;
@@ -499,7 +504,10 @@ struct HomoMedium : public Medium {
             weight = sigmas * tr / pdf;
             Vector3 ki;
             phase->samplePhase(ray.dir.normalized(), Vector2(randUniform(), randUniform()), ki);
-            newRay.dir = ki;
+            /*if(ki.dot(ray.dir) < 0.0f) {
+                printf("adfsaf\n");
+            }*/
+            newRay.dir = ki.normalized();
         } else {
             weight = tr / pdf;
         }

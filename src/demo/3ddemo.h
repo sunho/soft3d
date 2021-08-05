@@ -53,11 +53,11 @@ struct VolumeScatter : public App {
         basis.w = Vector3(0.0, 0.0, 1.0);
         scene.camera = Camera(Vector3(-4, 7, 26), basis, 1.0);
         scene.camera.lookAt(Vector3(0, 0.0, 0), Vector3(0, 1, 0));
-        Image envMap = loadTexture("resources/env.jpg");
+        Image envMap = loadTexture("resources/env-sunset.png");
         Image* envMapId = scene.textures.construct<Image>(envMap);
         scene.environmentMap = envMapId;
         //scene.lights.construct<DirectionalLight>(Vector3(1,1,1)*4.0f, Vector3(-1.0, -1.0, -1.0).normalized(), 5.0f);
-        auto l = scene.lights.construct<DiskLight>(Vector3(1, 1, 1)*10, Vector3(-4, 7, 26), 2.5f);
+        auto l = scene.lights.construct<DiskLight>(Vector3(1, 1, 1)*50, Vector3(-4, 7, 26), 2.5f);
         l->lookAt(Vector3(0,0,0));
         //auto l2 = scene.lights.construct<DiskLight>(Vector3(1, 1, 1)*10, Vector3(0, 13, 0), 5f);
         //l2->lookAt(Vector3(0,0,0));
@@ -68,14 +68,14 @@ struct VolumeScatter : public App {
 
         Material material1 = {
             .diffuse = Vector3(0x6e6e6e), .brdf = scene.brdfs.construct<DielectricBRDF>(1.3),
-            .medium = new HomoMedium(3.0f*(Vector3(1,1,1)-Vector3(0x402000)),
-                                     0.0f*(Vector3(0.7,0.7,0.7)), new HenyeyGreenstein(-0.8))
+            .medium = new HomoMedium((Vector3(1,1,1)-Vector3(0x70492f))*0.9+0.1f*Vector3(0x70492f),
+                                     0.1f*(Vector3(0x70492f)), new HenyeyGreenstein(0.5))
         };
         Material material2 = {
-            .diffuse = Vector3(1,1,1), .brdf = scene.brdfs.construct<GlossyBRDF>(0.4, 0.2)
+            .diffuse = Vector3(1,1,1), .brdf = scene.brdfs.construct<GlossyBRDF>(0.3, 0.2)
         };
         Material spoonMat = {
-            .diffuse = Vector3(0.7,0.7,0.7), .brdf = scene.brdfs.construct<GlossyBRDF>(0.9, 0.2)
+            .diffuse = Vector3(0.7,0.7,0.7), .brdf = scene.brdfs.construct<GlossyBRDF>(0.9, 0.1)
            };
         Material material3 = { .diffuse = Vector3(0.7, 0.7, 0.7) };
 

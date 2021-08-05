@@ -56,7 +56,7 @@ Vector3 RTCPURenderer::rayColor(Ray ray, Vector2 sample) {
     // light L_s(last) = L_e(x')cos theta cos theta_j
     int bounce = 0;
     Vector3 weight(1.0f,1.0f,1.0f);
-    Float t0 = 0.0f;
+    Float t0 = conf.closeTime;
     Float t1 = INF;
     Vector3 pixel;
 
@@ -71,6 +71,9 @@ Vector3 RTCPURenderer::rayColor(Ray ray, Vector2 sample) {
         }
         if (!testRay(ray, t0, t1, hit)) {
             Vector2 uv = convertSphereTexcoord(ray.dir.normalized());
+            //uv.x() += 0.5;
+            uv.y() = 1.0 - uv.y();
+            //uv.y() -= 0.7;
             Vector3 Le = 0.05*PI*sampleBilinear(*scene.environmentMap, uv, true);
             pixel += weight*Le;
             break;
@@ -84,6 +87,9 @@ Vector3 RTCPURenderer::rayColor(Ray ray, Vector2 sample) {
             Vector3 w;
             Ray newRay;
             bool wasMed = ray.medium->sample(ray, hit.time, w, newRay);
+            if (w.hmin() < 0.0f) {
+                printf("fadf\n");
+            }
             weight *= w;
             if (weight.isZero()) {
                 break;
@@ -129,6 +135,9 @@ Vector3 RTCPURenderer::rayColor(Ray ray, Vector2 sample) {
                 Vector3 Le = sampleLight(hit.geom, ins, hit.pos, hit.normal, ins.ko, TBN);
                 pixel += weight * Le;
             }
+            if (pixel.hmin() < 0.0f) {
+                printf("wtf\n");
+            }
             weight *= brdf * fabs(hit.normal.dot(ray.dir)) / pdf;
             if (weight.isZero()) {
                 break;
@@ -152,10 +161,13 @@ Vector3 RTCPURenderer::sampleLight(Geometry* geom, const Intersection& ins, cons
     Light* light = lights[i];
     Vector3 dir = light->sampleDir(pos);
     RayHit hit;
-    if (!testRay(Ray{ pos, dir, true }, conf.closeTime, 1.0f - conf.closeEpsillon, hit)) {
+    if (!testRay(Ray{ pos, dir, false }, conf.closeTime, 1.0f - conf.closeEpsillon, hit)) {
         Vector3 dd = dir.normalized();
         Vector3 ki = Vector3(TBN.u.dot(dd), TBN.v.dot(dd), TBN.w.dot(dd));
         Vector3 brdf = geom->material.brdf->eval(ins, ki);
+        if (brdf.hmin() < 0.0f) {
+            printf(("fuck\n"));
+        }
         return light->Le(brdf, ki, dir);
     }
     return Vector3(0, 0, 0);
@@ -169,10 +181,13 @@ Vector3 RTCPURenderer::sampleMediumLight(const Ray& ray, Medium* medium, const V
     RayHit hit;
     if (!testRay(Ray{ pos, dir, true }, conf.closeTime, 1.0f - conf.closeEpsillon, hit)) {
         Ray ray2{ pos, dir };
-        if (testRay(ray2, 0.0f, INF, hit)) {
+        if (testRay(ray2, conf.closeTime, INF, hit)) {
             Vector3 dd = dir.normalized();
             Vector3 tr = medium->Tr(ray2, hit.time);
-            return light->Le() * tr / medium->phaseP(ray.dir.normalized(), dd);
+            if (tr.hmin() < 0.0f || tr.hmax() > 1.0f) {
+                printf("Asdfasdf\n");
+            }
+            return light->Le() * tr;
         }
         //printf("asdfsaf\n");
     }
