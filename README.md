@@ -3,11 +3,8 @@
 3D renderer on cpu supporting raytracer/rasterizer
 
 ## Screenshots
-
-|  | |
-| :----: | :-----: |
-| ![](resources/screen5.png) | ![](resources/screen.png) |
-| ![](resources/screen3.png) |  |
+![](resources/screen5.png) 
+![](resources/cup.png) 
 
 ## Features
 
