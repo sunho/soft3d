@@ -3,8 +3,8 @@
 3D renderer on cpu supporting raytracer/rasterizer
 
 ## Screenshots
-![](resources/screen5.png) 
-![](resources/cup.png) 
+<img src="resources/screen5.png" width="500" height="500" />
+<img src="resources/cup.png" width="500" height="500" />
 
 ## Features
 
@@ -20,6 +20,10 @@ These features are all built from scrath by referring to Fundamentals of Compute
 - Basic graphics pipeline
 - Perspective correction
 - Parallel shading
+- Global illumination
+- Path tracing
+- Physically based rendering (BRDF, BTDF)
+- Volumetric rendering
 
 ## Build 
 ```
