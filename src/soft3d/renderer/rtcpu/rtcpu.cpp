@@ -35,7 +35,7 @@ void RTCPURenderer::render(Image& screen) {
         }
     }
     threadPool.flush(conf.threadNum);
-    quit.store(true, std::memory_order_acquire);
+    quit.store(true, std::memory_order_relaxed);
     timerThread.join();
     screen.sigmoidToneMap(0.1f);
 }
@@ -56,7 +56,7 @@ Vector3 RTCPURenderer::rayColor(Ray ray, Vector2 sample) {
     // light L_s(last) = L_e(x')cos theta cos theta_j
     int bounce = 0;
     Vector3 weight(1.0f,1.0f,1.0f);
-    Float t0 = conf.closeTime;
+    Float t0 = 0.0f;
     Float t1 = INF;
     Vector3 pixel;
 
@@ -71,15 +71,14 @@ Vector3 RTCPURenderer::rayColor(Ray ray, Vector2 sample) {
         }
         if (!testRay(ray, t0, t1, hit)) {
             Vector2 uv = convertSphereTexcoord(ray.dir.normalized());
-            //uv.x() += 0.5;
+           
             uv.y() = 1.0 - uv.y();
-            //uv.y() -= 0.7;
             Vector3 Le = 0.05*PI*sampleBilinear(*scene.environmentMap, uv, true);
             pixel += weight*Le;
             break;
         }
         Vector3 invDir = -1*ray.dir;
-        if (hit.normal.dot(invDir) <= 0.0f) {
+        if (hit.gnormal.dot(invDir) <= 0.0f) {
             ray.medium = hit.geom->material.medium;
         }
         TBN = Basis(hit.normal.normalized());
@@ -114,25 +113,34 @@ Vector3 RTCPURenderer::rayColor(Ray ray, Vector2 sample) {
             }
             ins.ko = TBN.fromGlobal(invDir);
             if (wasSpecular) {
-                Vector3 Le = sampleLight(hit.geom, ins, hit.pos, hit.normal, ins.ko, TBN);
+                Vector3 Le = sampleLight(hit.geom, ins, hit.pos, hit.gnormal, ins.ko, TBN);
                 pixel += weight * Le;
             }
             // normal coord = Basis^T * worldCoord
             // = (u . dir, v . dir, w. dir)
             Vector3 ki;
             Float pdf;
+            
+            
+            if (!hit.geom->material.brdf->trasmit() && hit.gnormal.dot(invDir) < 0.0f) {
+                break;
+            }
             Vector3 brdf = hit.geom->material.brdf->sample(ins, ki, pdf, wasSpecular);
-            t0 = conf.closeTime;
-            ray.origin = hit.pos;
-            Vector3 nextDir = ki.x() * TBN.u + ki.y() * TBN.v + ki.z() * TBN.w;
-            ray.dir = nextDir;
-            ray.dir.normalize();
             if (pdf == 0.0f) {
                 break;
             }
 
+            ray.origin = hit.pos;
+            Vector3 nextDir = ki.x() * TBN.u + ki.y() * TBN.v + ki.z() * TBN.w;
+            ray.dir = nextDir;
+            ray.dir.normalize();
+            if (hit.gnormal.dot(ray.dir) >= 0.0f) {
+                 ray.origin += hit.gnormal *2* conf.closeTime;
+             } else {
+                 ray.origin -= hit.gnormal *0.01* conf.closeTime;
+             }
             if (!wasSpecular) {
-                Vector3 Le = sampleLight(hit.geom, ins, hit.pos, hit.normal, ins.ko, TBN);
+                Vector3 Le = sampleLight(hit.geom, ins, hit.pos, hit.gnormal, ins.ko, TBN);
                 pixel += weight * Le;
             }
             if (pixel.hmin() < 0.0f) {
@@ -145,9 +153,8 @@ Vector3 RTCPURenderer::rayColor(Ray ray, Vector2 sample) {
             if (weight.hmin() < 0.0f) {
                 break;
             }
-            //ray.origin += ray.dir * conf.closeTime;
         } else {
-            ray.origin += ray.dir * (hit.time + conf.closeTime);
+            ray.origin = hit.pos;
         }
     }
 
@@ -164,11 +171,13 @@ Vector3 RTCPURenderer::sampleLight(Geometry* geom, const Intersection& ins, cons
     if (!testRay(Ray{ pos, dir, false }, conf.closeTime, 1.0f - conf.closeEpsillon, hit)) {
         Vector3 dd = dir.normalized();
         Vector3 ki = Vector3(TBN.u.dot(dd), TBN.v.dot(dd), TBN.w.dot(dd));
-        Vector3 brdf = geom->material.brdf->eval(ins, ki);
-        if (brdf.hmin() < 0.0f) {
-            printf(("fuck\n"));
+        if (!geom->material.brdf->trasmit() && normal.dot(dd) > 0.0f) {
+            Vector3 brdf = geom->material.brdf->eval(ins, ki);
+            if (brdf.hmin() < 0.0f) {
+                return Vector3(0,0,0);
+            }
+            return light->Le(brdf, ki, dir);
         }
-        return light->Le(brdf, ki, dir);
     }
     return Vector3(0, 0, 0);
 }

@@ -72,21 +72,22 @@ struct VolumeScatter : public App {
                                      0.1f*(Vector3(0x70492f)), new HenyeyGreenstein(0.5))
         };
         Material material2 = {
-            .diffuse = Vector3(1,1,1), .brdf = scene.brdfs.construct<GlossyBRDF>(0.3, 0.2)
+            .diffuse = Vector3(1,1,1), .brdf = scene.brdfs.construct<GlossyBRDF>(0.3, 0.1)
         };
         Material spoonMat = {
-            .diffuse = Vector3(0.7,0.7,0.7), .brdf = scene.brdfs.construct<GlossyBRDF>(0.9, 0.1)
+            .diffuse = Vector3(0.7,0.7,0.7), .brdf = scene.brdfs.construct<GlossyBRDF>(0.9, 0.0f)
            };
         Material material3 = { .diffuse = Vector3(0.7, 0.7, 0.7) };
 
-        Material defaultMat = { .diffuse = Vector3(1.0, 1.0, 1.0),
-                               .brdf = scene.brdfs.construct<GlossyBRDF>(0.1, 0.2) };
+        Material defaultMat = { .diffuse = Vector3(0.9, 0.9, 0.9),
+            .brdf = scene.brdfs.construct<LambertianBRDF>() };
 
         std::map<std::string, Material> materialMap;
         materialMap["cafe"] = material1;
         materialMap["porcelana"] = material2;
         materialMap["Material"] = material2;
-        materialMap["None"] = spoonMat;
+        materialMap["None"] = material2;
+        materialMap["Material.002"] = spoonMat;
         Model cup = loadObj("resources/cup.obj");
         for (int i = 0; i < cup.meshes.size(); ++i) {
             Material current;

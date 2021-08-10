@@ -84,6 +84,7 @@ struct BRDF {
     BRDF() = default;
     virtual ~BRDF() {
     }
+    virtual bool trasmit() { return false; }
     virtual Vector3 sample(const Intersection& intersection, Vector3& ki, Float& pdf, bool& wasSpecular) = 0;
     virtual Vector3 eval(const Intersection& intersection, const Vector3& ki) = 0;
 };
@@ -168,6 +169,7 @@ struct DielectricBRDF : public BRDF {
     }
     Float index;
     Float R0;
+    bool trasmit() override { return true; }
     Vector3 sample(const Intersection& intersection, Vector3& ki, Float& pdf, bool& wasSpecular) override {
         Vector3 normal;
         Float i;
@@ -276,12 +278,18 @@ static Float beckmannMicrofacet(Vector3 half, Float alpha) {
     return d/k;
 }
 
+static Float roughnessToAlpha(Float roughness) {
+    roughness = std::max(roughness, (Float)1e-3);
+    Float x = log(roughness);
+    return 1.62142f + 0.819955f * x + 0.1734f * x * x +
+        0.0171201f * x * x * x + 0.000640711f * x * x * x * x;
+}
 
 struct GlossyBRDF : public BRDF {
     GlossyBRDF() = default;
     ~GlossyBRDF() {
     }
-    GlossyBRDF(Float Rs, Float alpha) : Rs(Rs), alpha(alpha) {
+    GlossyBRDF(Float Rs, Float rough) : Rs(Rs), alpha(roughnessToAlpha(rough)) {
         
     }
     Vector3 sample(const Intersection& intersection, Vector3& ki, Float& pdf, bool& wasSpecular) override {
@@ -289,18 +297,16 @@ struct GlossyBRDF : public BRDF {
             Float phi;
             Vector3 half = sampleMicrofacetHalfVector(Vector2(randUniform(), randUniform()), alpha, phi);
             half.normalized();
-            Float koh = std::min(intersection.ko.dot(half), 1.0f);
-            if (intersection.ko.z() <= 0.0f) {
-                pdf = 0.0f;
-                return Vector3(0,0,0);
+            if (half.z() <= 0.0f) {
+                printf("asdfdsaf\n");
             }
-            if (koh <= 0.0f) {
-                pdf = 0.0f;
-                return Vector3(0,0,0);
-            }
+            Float koh = std::min(abs(intersection.ko.dot(half)), 1.0f);
             Float cosTh = half.dot(Vector3(0,0,1));
             ki = 2 * koh * half - intersection.ko;
-            pdf = 1.0f;
+            if (ki.z() <= 0.0f) {
+                pdf = 0.0f;
+                return Vector3(0,0,0);
+            }
             pdf = beckmannMicrofacet(half, alpha) * cosTh / (4*koh);
             if (pdf <0.0f || isnan(pdf) || !isfinite(pdf)) {
                 printf("asdfasdf\n");
@@ -322,9 +328,6 @@ struct GlossyBRDF : public BRDF {
             return Vector3(0,0,0);
         }
         if (ki.z() <= 0.0f) {
-            return Vector3(0, 0, 0);
-        }
-        if (intersection.ko.z() <= 0.0f) {
             return Vector3(0, 0, 0);
         }
         Float D = beckmannMicrofacet(half, alpha);
@@ -371,10 +374,6 @@ struct AntPhongBRDF : public BRDF {
             // Convert half vector into ki
             Float koh = intersection.ko.dot(half);
             ki = 2 * koh * half - intersection.ko;
-            if (ki.z() <= 0.0f) {
-                pdf = 0.0f;
-                return Vector3(0, 0, 0);
-            }
             // Half vector pdf
             // TODO: we can just memo sqrt(nu+1) and sqrt(nv+1)
             Float k = sqrt((nu + 1) * (nv + 1)) / (2 * PI);
@@ -397,13 +396,10 @@ struct AntPhongBRDF : public BRDF {
     }
 
     Vector3 eval(const Intersection& intersection, const Vector3& ki) override {
-        if (ki.z() <= 0.0f) {
-            return Vector3(0, 0, 0);
-        }
         Vector3 half = (intersection.ko + ki).normalized();
-        Float koh = intersection.ko.dot(half);
-        Float kin = Vector3(0,0,1).dot(ki);
-        Float kon = Vector3(0, 0, 1).dot(intersection.ko);
+        Float koh = abs(intersection.ko.dot(half));
+        Float kin = abs(Vector3(0,0,1).dot(ki));
+        Float kon = abs(Vector3(0, 0, 1).dot(intersection.ko));
         Float cos2Th = half.z() * half.z();
         Float sin2Th = 1.0f - cos2Th;
         if (sin2Th == 0.0f) {
